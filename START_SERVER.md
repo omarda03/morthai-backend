@@ -24,7 +24,19 @@
    NODE_ENV=development
    CORS_ORIGIN=http://localhost:3000
    JWT_SECRET=morthai-secret-key-2025
+   
+   # UltraMsg WhatsApp API (optional - for sending confirmation messages)
+   ULTRAMSG_INSTANCE_ID=your_instance_id
+   ULTRAMSG_TOKEN=your_token
    ```
+   
+   **Note:** To get your UltraMsg credentials:
+   1. Sign up at https://ultramsg.com
+   2. Create an instance and get your Instance ID
+   3. Get your API token from your dashboard
+   4. Add them to your `.env` file
+   
+   The WhatsApp notification will only work if these variables are configured. If not set, the reservation update will still work but no WhatsApp message will be sent.
 
 4. **Run database migrations:**
    ```bash

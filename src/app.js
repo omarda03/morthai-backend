@@ -14,6 +14,7 @@ import serviceRoutes from './routes/serviceRoutes.js';
 import reservationRoutes from './routes/reservationRoutes.js';
 import carteCadeauxRoutes from './routes/carteCadeauxRoutes.js';
 import offreRoutes from './routes/offreRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,6 +74,7 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/cartes-cadeaux', carteCadeauxRoutes);
 app.use('/api/offres', offreRoutes);
+app.use('/api/users', userRoutes);
 
 // 404 handler
 app.use((req, res) => {

@@ -5,6 +5,9 @@
 CREATE TABLE IF NOT EXISTS categorie (
     cat_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nomcategorie VARCHAR(255) NOT NULL,
+    nomcategorie_fr VARCHAR(255),
+    nomcategorie_en VARCHAR(255),
+    image VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -22,15 +25,36 @@ CREATE TABLE IF NOT EXISTS cartecadeaux (
 CREATE TABLE IF NOT EXISTS service (
     service_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nomservice VARCHAR(255) NOT NULL,
+    nomservice_fr VARCHAR(255),
+    nomservice_en VARCHAR(255),
     description TEXT,
+    description_fr TEXT,
+    description_en TEXT,
+    meta_title VARCHAR(255),
+    meta_description TEXT,
+    reference VARCHAR(50) UNIQUE,
     images TEXT[], -- Array of image URLs
-    durée INTEGER NOT NULL, -- Duration in minutes
-    prix DECIMAL(10, 2) NOT NULL,
     cat_uuid UUID NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cat_uuid) REFERENCES categorie(cat_uuid) ON DELETE CASCADE
 );
+
+-- Table: service_offers (multiple offers per service)
+CREATE TABLE IF NOT EXISTS service_offers (
+    offer_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    service_uuid UUID NOT NULL,
+    durée INTEGER NOT NULL, -- Duration in minutes
+    prix_mad DECIMAL(10, 2) NOT NULL, -- Price in Moroccan Dirham
+    prix_eur DECIMAL(10, 2) NOT NULL, -- Price in Euro
+    display_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (service_uuid) REFERENCES service(service_uuid) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_offers_service ON service_offers(service_uuid);
+CREATE INDEX IF NOT EXISTS idx_service_offers_order ON service_offers(service_uuid, display_order);
 
 -- Table: reservation
 CREATE TABLE IF NOT EXISTS reservation (
@@ -69,6 +93,16 @@ CREATE TABLE IF NOT EXISTS offre (
     FOREIGN KEY (service) REFERENCES service(service_uuid) ON DELETE CASCADE
 );
 
+-- Table: users (Admin users)
+CREATE TABLE IF NOT EXISTS users (
+    user_uuid UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nom VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_service_cat_uuid ON service(cat_uuid);
 CREATE INDEX IF NOT EXISTS idx_reservation_service_uuid ON reservation(service_uuid);
@@ -76,4 +110,5 @@ CREATE INDEX IF NOT EXISTS idx_reservation_date ON reservation(dateres);
 CREATE INDEX IF NOT EXISTS idx_offre_carte ON offre(cartecadeaux);
 CREATE INDEX IF NOT EXISTS idx_offre_service ON offre(service);
 CREATE INDEX IF NOT EXISTS idx_offre_code_unique ON offre(codeunique);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 

@@ -36,7 +36,13 @@ PORT=3001
 NODE_ENV=development
 
 CORS_ORIGIN=http://localhost:3000
+
+# UltraMsg WhatsApp API (optional - for sending confirmation messages)
+ULTRAMSG_INSTANCE_ID=your_instance_id
+ULTRAMSG_TOKEN=your_token
 ```
+
+**Note:** UltraMsg WhatsApp integration is optional. If configured, clients will automatically receive a WhatsApp confirmation message when their reservation status is changed to "confirmed". To get your credentials, sign up at https://ultramsg.com.
 
 3. Create the PostgreSQL database:
 ```bash
