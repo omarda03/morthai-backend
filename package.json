@@ -13,7 +13,10 @@
     "migrate:reservation-notes": "node src/database/migrate_reservation_notes.js",
     "migrate:reservation-emails": "node src/database/migrate_reservation_emails.js",
     "seed:services": "node src/database/seed-services.js",
-    "add:service-images": "node src/database/add-service-images.js"
+    "add:service-images": "node src/database/add-service-images.js",
+    "backup": "node backup-database.js create",
+    "backup:list": "node backup-database.js list",
+    "backup:restore": "node backup-database.js restore"
   },
   "keywords": [
     "express",

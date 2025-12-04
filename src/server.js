@@ -4,10 +4,46 @@ import app from './app.js';
 import dotenv from 'dotenv';
 import cron from 'node-cron';
 import { autoCompleteReservations } from './services/reservationAutoCompleteService.js';
+import { createScheduledBackup } from './services/backupService.js';
+import pool from './config/database.js';
 
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
+
+// Handle uncaught exceptions and unhandled rejections to prevent crashes
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Don't exit - let PM2 handle restart
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit - let PM2 handle restart
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  httpServer.close(() => {
+    console.log('HTTP server closed');
+    pool.end(() => {
+      console.log('Database pool closed');
+      process.exit(0);
+    });
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  httpServer.close(() => {
+    console.log('HTTP server closed');
+    pool.end(() => {
+      console.log('Database pool closed');
+      process.exit(0);
+    });
+  });
+});
 
 // Create HTTP server
 const httpServer = createServer(app);
@@ -48,15 +84,39 @@ cron.schedule('*/15 * * * *', async () => {
     
     // Emit WebSocket event if any reservations were updated
     if (result.updated > 0 && io) {
-      io.to('admin').emit('reservations:auto-completed', {
-        count: result.updated,
-        reservations: result.reservations,
-      });
-      console.log(`📢 Notified admins about ${result.updated} auto-completed reservation(s)`);
+      try {
+        io.to('admin').emit('reservations:auto-completed', {
+          count: result.updated,
+          reservations: result.reservations,
+        });
+        console.log(`📢 Notified admins about ${result.updated} auto-completed reservation(s)`);
+      } catch (wsError) {
+        console.error('❌ Error emitting WebSocket event:', wsError);
+        // Don't throw - WebSocket errors shouldn't crash the cron job
+      }
     }
   } catch (error) {
     console.error('❌ Error in scheduled auto-complete task:', error);
+    // Don't throw - cron job errors shouldn't crash the server
+    // PM2 will handle if the entire process crashes
   }
+}, {
+  scheduled: true,
+  timezone: "UTC"
+});
+
+// Schedule daily database backup at 2 AM UTC
+cron.schedule('0 2 * * *', async () => {
+  console.log('💾 Running scheduled daily backup...');
+  try {
+    await createScheduledBackup();
+  } catch (error) {
+    console.error('❌ Error in scheduled backup task:', error);
+    // Don't throw - backup errors shouldn't crash the server
+  }
+}, {
+  scheduled: true,
+  timezone: "UTC"
 });
 
 // Also run once on server startup (after a short delay to ensure DB is ready)
@@ -66,6 +126,7 @@ setTimeout(async () => {
     await autoCompleteReservations();
   } catch (error) {
     console.error('❌ Error in initial auto-complete check:', error);
+    // Don't throw - startup check failure shouldn't prevent server from running
   }
 }, 5000); // Wait 5 seconds after server starts
 

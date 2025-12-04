@@ -23,7 +23,8 @@ pool.on('connect', () => {
 
 pool.on('error', (err) => {
   console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  // Don't exit - let the connection pool handle reconnection
+  // Process managers (PM2) will handle crashes if needed
 });
 
 export default pool;
