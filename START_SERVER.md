@@ -28,6 +28,12 @@
    # UltraMsg WhatsApp API (optional - for sending confirmation messages)
    ULTRAMSG_INSTANCE_ID=your_instance_id
    ULTRAMSG_TOKEN=your_token
+   
+   # CMI Payment Gateway (required for online payments)
+   CMI_CLIENT_ID=600001790
+   CMI_STORE_KEY=Morthai2701
+   BASE_URL=http://localhost:3000
+   BACKEND_URL=http://localhost:3001
    ```
    
    **Note:** To get your UltraMsg credentials:
@@ -37,6 +43,8 @@
    4. Add them to your `.env` file
    
    The WhatsApp notification will only work if these variables are configured. If not set, the reservation update will still work but no WhatsApp message will be sent.
+   
+   **Note:** CMI Payment Gateway credentials are required for online payment functionality. If not configured, users can still make reservations with "Pay at Spa" option. Make sure to add the CMI credentials to your `.env` file.
 
 4. **Run database migrations:**
    ```bash
@@ -70,4 +78,15 @@ The server will start on `http://localhost:3001`
 - Make sure backend server is running on port 3001
 - Check browser console for connection errors
 - Verify credentials: username: `morthai`, password: `morthai@2025`
+
+### Online payment not working
+- Make sure CMI credentials are configured in `.env` file:
+  ```
+  CMI_CLIENT_ID=600001790
+  CMI_STORE_KEY=Morthai2701
+  BASE_URL=http://localhost:3000
+  BACKEND_URL=http://localhost:3001
+  ```
+- If credentials are missing, users can still make reservations with "Pay at Spa" option
+- Restart the backend server after adding CMI credentials
 

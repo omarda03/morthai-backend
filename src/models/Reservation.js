@@ -12,6 +12,7 @@ export class Reservation {
     // Get reservations
     let query = `
       SELECT r.*, 
+        COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
         s.nomservice_fr as "NomServiceFr",
         s.nomservice_en as "NomServiceEn",
         s.nomservice as "NomService",
@@ -25,7 +26,7 @@ export class Reservation {
 
     // Search by reference or client name
     if (filters.search) {
-      query += ` AND (r.reference ILIKE $${paramCount} OR r.nomclient ILIKE $${paramCount})`;
+      query += ` AND (COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) ILIKE $${paramCount} OR r.nomclient ILIKE $${paramCount})`;
       params.push(`%${filters.search}%`);
       paramCount++;
     }
@@ -152,21 +153,40 @@ export class Reservation {
     return result.rows;
   }
 
-  // Get reservation by ID
-  static async getById(reservationUuid) {
-    const result = await pool.query(`
-      SELECT r.*, s.nomservice as "NomService", s.prix as "ServicePrix", s.durée as "ServiceDuree"
+  // Get reservation by ID (UUID or reference)
+  static async getById(identifier) {
+    // Check if identifier is a UUID (contains hyphens) or a reference (MOR-XXXX)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+    
+    let query = `
+      SELECT r.*, 
+        COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        s.nomservice as "NomService", 
+        s.nomservice_fr as "NomServiceFr",
+        s.nomservice_en as "NomServiceEn"
       FROM reservation r 
       LEFT JOIN service s ON r.service_uuid = s.service_uuid 
-      WHERE r.reservation_uuid = $1
-    `, [reservationUuid]);
+      WHERE `;
+    
+    if (isUUID) {
+      query += `r.reservation_uuid = $1`;
+    } else {
+      // Search by reference
+      query += `COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) = $1`;
+    }
+    
+    const result = await pool.query(query, [identifier]);
     return result.rows[0];
   }
 
   // Get reservations by date
   static async getByDate(date) {
     const result = await pool.query(`
-      SELECT r.*, s.nomservice as "NomService", s.prix as "ServicePrix"
+      SELECT r.*, 
+        COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        s.nomservice as "NomService", 
+        s.nomservice_fr as "NomServiceFr",
+        s.nomservice_en as "NomServiceEn"
       FROM reservation r 
       LEFT JOIN service s ON r.service_uuid = s.service_uuid 
       WHERE r.dateres = $1 
@@ -178,7 +198,11 @@ export class Reservation {
   // Get reservations by status
   static async getByStatus(status) {
     const result = await pool.query(`
-      SELECT r.*, s.nomservice as "NomService", s.prix as "ServicePrix"
+      SELECT r.*, 
+        COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        s.nomservice as "NomService", 
+        s.nomservice_fr as "NomServiceFr",
+        s.nomservice_en as "NomServiceEn"
       FROM reservation r 
       LEFT JOIN service s ON r.service_uuid = s.service_uuid 
       WHERE r.statusres = $1 
@@ -187,7 +211,7 @@ export class Reservation {
     return result.rows;
   }
 
-  // Create new reservation
+  // Create new reservation with auto-increment reference
   static async create(data) {
     const {
       NomClient,
@@ -200,20 +224,67 @@ export class Reservation {
       PrixTotal,
       NbrPersonne,
       StatusRes,
-      Note
+      Note,
+      Reference
     } = data;
     
-    const result = await pool.query(
+    // Step 1: Create reservation with temporary reference 'MOR-0'
+    const tempReference = Reference || 'MOR-0';
+    
+    const insertResult = await pool.query(
       `INSERT INTO reservation 
-       (nomclient, email, numerotelephone, dateres, heureres, service_uuid, modepaiement, prixtotal, nbrpersonne, statusres, note) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-      [NomClient, Email, NumeroTelephone, DateRes, HeureRes, Service_UUID, ModePaiement, PrixTotal, NbrPersonne || 1, StatusRes || 'pending', Note]
+       (nomclient, email, numerotelephone, dateres, heureres, service_uuid, modepaiement, prixtotal, nbrpersonne, statusres, note, reference) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [NomClient, Email, NumeroTelephone, DateRes, HeureRes, Service_UUID, ModePaiement, PrixTotal, NbrPersonne || 1, StatusRes || 'pending', Note, tempReference]
     );
-    return result.rows[0];
+    
+    const savedReservation = insertResult.rows[0];
+    
+    // Step 2: If reference was not provided, generate final reference using sequence
+    if (!Reference) {
+      try {
+        // Get next value from sequence
+        const sequenceResult = await pool.query(`
+          SELECT nextval('reservation_reference_seq') as next_id
+        `);
+        
+        const referenceId = sequenceResult.rows[0].next_id;
+        const finalReference = `MOR-${referenceId}`;
+        
+        // Step 3: Update reservation with final reference
+        const updateResult = await pool.query(
+          `UPDATE reservation 
+           SET reference = $1 
+           WHERE reservation_uuid = $2 
+           RETURNING *`,
+          [finalReference, savedReservation.reservation_uuid]
+        );
+        
+        return updateResult.rows[0];
+      } catch (error) {
+        // If sequence doesn't exist or fails, fallback to timestamp-based
+        console.error('Error generating reference from sequence:', error);
+        const timestamp = Date.now();
+        const fallbackReference = `MOR-${timestamp.toString().substring(0, 10)}`;
+        
+        const updateResult = await pool.query(
+          `UPDATE reservation 
+           SET reference = $1 
+           WHERE reservation_uuid = $2 
+           RETURNING *`,
+          [fallbackReference, savedReservation.reservation_uuid]
+        );
+        
+        return updateResult.rows[0];
+      }
+    }
+    
+    // If reference was provided, return the reservation as-is
+    return savedReservation;
   }
 
   // Update reservation
-  static async update(reservationUuid, data) {
+  static async update(reservationUuid, data, modifiedBy = null) {
     const {
       NomClient,
       Email,
@@ -232,15 +303,20 @@ export class Reservation {
       `UPDATE reservation 
        SET nomclient = $1, email = $2, numerotelephone = $3, dateres = $4, heureres = $5, 
            service_uuid = $6, modepaiement = $7, prixtotal = $8, nbrpersonne = $9, 
-           statusres = $10, note = $11, updated_at = CURRENT_TIMESTAMP 
+           statusres = $10, note = $11, updated_at = CURRENT_TIMESTAMP,
+           last_modified_by = $13, last_modified_at = CURRENT_TIMESTAMP 
        WHERE reservation_uuid = $12 RETURNING *`,
-      [NomClient, Email, NumeroTelephone, DateRes, HeureRes, Service_UUID, ModePaiement, PrixTotal, NbrPersonne, StatusRes, Note, reservationUuid]
+      [NomClient, Email, NumeroTelephone, DateRes, HeureRes, Service_UUID, ModePaiement, PrixTotal, NbrPersonne, StatusRes, Note, reservationUuid, modifiedBy]
     );
     
     // If update was successful, get full details with service name
     if (result.rows[0]) {
       const fullDetails = await pool.query(`
-        SELECT r.*, s.nomservice as "NomService", s.prix as "ServicePrix", s.durée as "ServiceDuree"
+        SELECT r.*, 
+          COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+          s.nomservice as "NomService", 
+          s.nomservice_fr as "NomServiceFr",
+          s.nomservice_en as "NomServiceEn"
         FROM reservation r 
         LEFT JOIN service s ON r.service_uuid = s.service_uuid 
         WHERE r.reservation_uuid = $1
@@ -249,6 +325,39 @@ export class Reservation {
     }
     
     return result.rows[0];
+  }
+
+  // Mark reservation as viewed
+  static async markAsViewed(reservationUuid, viewedBy = null) {
+    const result = await pool.query(
+      'UPDATE reservation SET is_viewed = TRUE, last_viewed_by = $2, last_viewed_at = CURRENT_TIMESTAMP WHERE reservation_uuid = $1 RETURNING *',
+      [reservationUuid, viewedBy]
+    );
+    return result.rows[0];
+  }
+
+  // Get reservations viewed but not modified (for admin notifications)
+  static async getViewedButNotModified(currentAdminEmail) {
+    const result = await pool.query(
+      `SELECT r.*, 
+        COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        s.nomservice_fr as "NomServiceFr",
+        s.nomservice as "NomService",
+        u.nom as "viewed_by_name"
+      FROM reservation r 
+      LEFT JOIN service s ON r.service_uuid = s.service_uuid 
+      INNER JOIN users u ON r.last_viewed_by = u.email
+      WHERE r.is_viewed = TRUE 
+        AND r.last_viewed_by IS NOT NULL
+        AND r.last_viewed_by != $1
+        AND r.last_viewed_by != 'unknown'
+        AND u.nom IS NOT NULL
+        AND (r.last_modified_at IS NULL OR r.last_viewed_at > r.last_modified_at)
+      ORDER BY r.last_viewed_at DESC
+      LIMIT 10`,
+      [currentAdminEmail]
+    );
+    return result.rows;
   }
 
   // Delete reservation

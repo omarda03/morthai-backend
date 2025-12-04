@@ -22,19 +22,23 @@ export class User {
     return result.rows[0];
   }
 
-  // Get user by email
+  // Get user by email (case-insensitive)
   static async getByEmail(email) {
+    const normalizedEmail = email.toLowerCase().trim();
     const result = await pool.query(`
       SELECT user_uuid, nom, email, password, created_at, updated_at
       FROM users
-      WHERE email = $1
-    `, [email]);
+      WHERE LOWER(email) = $1
+    `, [normalizedEmail]);
     return result.rows[0];
   }
 
   // Create new user
   static async create(userData) {
     const { nom, email, password } = userData;
+
+    // Normalize email to lowercase
+    const normalizedEmail = email.toLowerCase().trim();
 
     // Hash password
     const saltRounds = 10;
@@ -44,7 +48,7 @@ export class User {
       INSERT INTO users (nom, email, password)
       VALUES ($1, $2, $3)
       RETURNING user_uuid, nom, email, created_at, updated_at
-    `, [nom, email, hashedPassword]);
+    `, [nom, normalizedEmail, hashedPassword]);
 
     return result.rows[0];
   }
@@ -63,7 +67,7 @@ export class User {
 
     if (email !== undefined) {
       updates.push(`email = $${paramCount++}`);
-      values.push(email);
+      values.push(email.toLowerCase().trim());
     }
 
     if (password !== undefined) {

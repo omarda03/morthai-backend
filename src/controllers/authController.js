@@ -1,8 +1,7 @@
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { User } from '../models/User.js';
 
-// Static admin credentials
-const ADMIN_USERNAME = 'morthai';
-const ADMIN_PASSWORD = 'morthai@2025';
 const JWT_SECRET = process.env.JWT_SECRET || 'morthai-secret-key-2025';
 const JWT_EXPIRES_IN = '24h';
 
@@ -12,16 +11,34 @@ export const login = async (req, res) => {
 
     // Validate credentials
     if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+      return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+    // username is actually the email from the frontend
+    const email = username.trim().toLowerCase();
+
+    // Find user by email
+    const user = await User.getByEmail(email);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Compare password with hashed password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Generate JWT token
     const token = jwt.sign(
-      { username: ADMIN_USERNAME, role: 'admin' },
+      { 
+        user_uuid: user.user_uuid,
+        username: user.nom,
+        email: user.email,
+        role: 'admin' 
+      },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
@@ -30,11 +47,14 @@ export const login = async (req, res) => {
       message: 'Login successful',
       token,
       user: {
-        username: ADMIN_USERNAME,
+        user_uuid: user.user_uuid,
+        username: user.nom,
+        email: user.email,
         role: 'admin'
       }
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: error.message });
   }
 };

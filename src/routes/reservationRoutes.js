@@ -7,10 +7,21 @@ import {
   createReservation,
   updateReservation,
   deleteReservation,
+  getViewedButNotModifiedNotifications,
   sendWhatsApp,
   sendEmail,
   previewEmail
 } from '../controllers/reservationController.js';
+import {
+  getReservationNotes,
+  addReservationNote,
+  deleteReservationNote
+} from '../controllers/reservationNoteController.js';
+import {
+  getReservationEmails,
+  syncGmailEmails
+} from '../controllers/reservationEmailController.js';
+import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -104,6 +115,26 @@ const router = express.Router();
  *                     format: date-time
  */
 router.get('/', getAllReservations);
+
+/**
+ * @swagger
+ * /api/reservations/notifications/viewed-not-modified:
+ *   get:
+ *     summary: Get reservations viewed but not modified by other admins
+ *     tags: [Reservations]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of reservations viewed but not modified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Reservation'
+ */
+router.get('/notifications/viewed-not-modified', authenticateToken, getViewedButNotModifiedNotifications);
 
 /**
  * @swagger
@@ -651,6 +682,170 @@ router.post('/:id/email', sendEmail);
  *         description: Server error
  */
 router.post('/:id/email/preview', previewEmail);
+
+// Reservation Notes Routes
+/**
+ * @swagger
+ * /api/reservations/{id}/notes:
+ *   get:
+ *     summary: Get all notes for a reservation
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Reservation UUID
+ *     responses:
+ *       200:
+ *         description: List of notes for the reservation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   note_uuid:
+ *                     type: string
+ *                     format: uuid
+ *                   reservation_uuid:
+ *                     type: string
+ *                     format: uuid
+ *                   note:
+ *                     type: string
+ *                   created_by:
+ *                     type: string
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *       404:
+ *         description: Reservation not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/notes', authenticateToken, getReservationNotes);
+
+/**
+ * @swagger
+ * /api/reservations/{id}/notes:
+ *   post:
+ *     summary: Add a note to a reservation
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Reservation UUID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - note
+ *             properties:
+ *               note:
+ *                 type: string
+ *                 description: Note content
+ *                 example: "Client requested morning time slot"
+ *     responses:
+ *       201:
+ *         description: Note added successfully
+ *       400:
+ *         description: Bad request (missing note)
+ *       404:
+ *         description: Reservation not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/notes', authenticateToken, addReservationNote);
+
+/**
+ * @swagger
+ * /api/reservations/{id}/notes/{noteId}:
+ *   delete:
+ *     summary: Delete a note from a reservation
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Reservation UUID
+ *       - in: path
+ *         name: noteId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Note UUID
+ *     responses:
+ *       200:
+ *         description: Note deleted successfully
+ *       404:
+ *         description: Reservation or note not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id/notes/:noteId', authenticateToken, deleteReservationNote);
+
+// Reservation Email Conversation Routes
+/**
+ * @swagger
+ * /api/reservations/{id}/emails:
+ *   get:
+ *     summary: Get all emails (conversation) for a reservation
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Reservation UUID
+ *     responses:
+ *       200:
+ *         description: List of emails in the conversation
+ *       404:
+ *         description: Reservation not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id/emails', authenticateToken, getReservationEmails);
+
+/**
+ * @swagger
+ * /api/reservations/{id}/emails/sync:
+ *   post:
+ *     summary: Sync emails from Gmail API
+ *     tags: [Reservations]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Reservation UUID
+ *     responses:
+ *       200:
+ *         description: Gmail sync initiated
+ *       404:
+ *         description: Reservation not found
+ *       500:
+ *         description: Server error
+ */
+router.post('/:id/emails/sync', authenticateToken, syncGmailEmails);
 
 export default router;
 

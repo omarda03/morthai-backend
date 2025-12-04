@@ -42,7 +42,11 @@ export class Service {
   // Get services by category
   static async getByCategory(catUuid) {
     const result = await pool.query(`
-      SELECT s.*, c.nomcategorie as "NomCategorie"
+      SELECT 
+        s.*, 
+        c.nomcategorie as "NomCategorie",
+        c.nomcategorie_fr as "NomCategorieFr",
+        c.nomcategorie_en as "NomCategorieEn"
       FROM service s 
       LEFT JOIN categorie c ON s.cat_uuid = c.cat_uuid 
       WHERE s.cat_uuid = $1 

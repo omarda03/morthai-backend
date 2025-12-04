@@ -20,6 +20,83 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
+ * Generate Google Calendar link for reservation
+ * @param {Object} reservationData - Reservation data with date, time, service info
+ * @param {string} language - Language (fr or en)
+ * @returns {string} Google Calendar URL
+ */
+function generateGoogleCalendarLink(reservationData, language = 'fr') {
+  const {
+    dateres,
+    heureres,
+    NomService,
+    NomServiceFr,
+    NomServiceEn,
+    duree,
+    reference
+  } = reservationData;
+
+  const serviceName = language === 'fr' 
+    ? (NomServiceFr || NomService || 'Service')
+    : (NomServiceEn || NomService || 'Service');
+
+  // Create start date/time
+  const reservationDate = new Date(dateres);
+  let startDateTime = new Date(reservationDate);
+  
+  if (heureres) {
+    const [hours, minutes] = heureres.split(':').map(Number);
+    startDateTime.setHours(hours, minutes || 0, 0, 0);
+  } else {
+    // Default to 10:00 AM if no time specified
+    startDateTime.setHours(10, 0, 0, 0);
+  }
+
+  // Calculate end date/time (default duration is 1 hour)
+  let durationMinutes = 60; // Default 1 hour
+  if (duree) {
+    durationMinutes = parseInt(duree) || 60;
+  }
+  
+  const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60 * 1000);
+
+  // Format dates for Google Calendar (format: YYYYMMDDTHHMMSS)
+  // Using local time (Marrakech timezone) for better accuracy
+  const formatGoogleDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+  };
+
+  const startDateFormatted = formatGoogleDate(startDateTime);
+  const endDateFormatted = formatGoogleDate(endDateTime);
+
+  // Encode URL parameters
+  const eventTitle = encodeURIComponent(
+    language === 'fr' 
+      ? `Réservation Mor Thai SPA - ${serviceName}`
+      : `Mor Thai SPA Reservation - ${serviceName}`
+  );
+
+  const reservationRef = reference || '';
+  const details = encodeURIComponent(
+    language === 'fr'
+      ? `Réservation: ${serviceName}${reservationRef ? '\nRéférence: ' + reservationRef : ''}\n\nMor Thai SPA\nN° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech.\n\nTéléphone: +212 524 207 055\nEmail: contact@morthai-marrakech.com`
+      : `Reservation: ${serviceName}${reservationRef ? '\nReference: ' + reservationRef : ''}\n\nMor Thai SPA\nN° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech.\n\nPhone: +212 524 207 055\nEmail: contact@morthai-marrakech.com`
+  );
+
+  const location = encodeURIComponent(
+    'N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech, Morocco'
+  );
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${startDateFormatted}/${endDateFormatted}&details=${details}&location=${location}`;
+}
+
+/**
  * Generate HTML email template
  */
 function generateEmailHTML({
@@ -28,7 +105,8 @@ function generateEmailHTML({
   messageContent,
   reservationData,
   language = 'fr',
-  customMessage = null
+  customMessage = null,
+  showCalendarLink = true
 }) {
   const {
     reference,
@@ -184,6 +262,17 @@ function generateEmailHTML({
                 <p style="margin: 0; color: #666; font-size: 14px;">${formattedReservationDate}</p>
                 ${formattedReservationTime ? `<p style="margin: 5px 0 0; color: #666; font-size: 14px;">${formattedReservationTime}</p>` : ''}
               </div>
+              
+              ${showCalendarLink ? `
+              <!-- Google Calendar Link -->
+              <div style="margin-top: 25px; text-align: center;">
+                <a href="${generateGoogleCalendarLink(reservationData, language)}" 
+                   target="_blank" 
+                   style="display: inline-block; background-color: #8B4513; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; font-size: 14px; transition: background-color 0.3s;">
+                  ${language === 'fr' ? 'Ajouter à Google Calendar' : 'Add to Google Calendar'}
+                </a>
+              </div>
+              ` : ''}
             </td>
           </tr>
           
@@ -399,9 +488,100 @@ export async function sendReservationEmail(reservation, emailType, customMessage
              <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">You will find the new details below.</p>`);
       break;
 
+    case 'unavailability':
+      subject = language === 'fr'
+        ? 'Non-disponibilité de créneaux - Mor Thai Spa'
+        : 'Slot Unavailability - Mor Thai Spa';
+      bannerText = language === 'fr' ? 'CRÉNEAU NON DISPONIBLE' : 'SLOT UNAVAILABLE';
+      bannerColor = '#ff9800';
+      messageContent = customMessage && customMessage.trim()
+        ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${customMessage.replace(/\n/g, '<br>')}</p>`
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Nous sommes désolés de vous informer que le créneau demandé pour votre réservation (${formattedReservationDate} à ${formattedReservationTime}) n'est malheureusement pas disponible.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Nous vous proposons de choisir une autre date et heure. N'hésitez pas à nous contacter pour trouver une alternative qui vous convient.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">We're sorry to inform you that the requested time slot for your reservation (${formattedReservationDate} at ${formattedReservationTime}) is unfortunately not available.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">We suggest choosing another date and time. Please don't hesitate to contact us to find an alternative that suits you.</p>`);
+      break;
+
+    case 'refund_request':
+      subject = language === 'fr'
+        ? 'Demande de remboursement - Mor Thai Spa'
+        : 'Refund Request - Mor Thai Spa';
+      bannerText = language === 'fr' ? 'DEMANDE DE REMBOURSEMENT' : 'REFUND REQUEST';
+      bannerColor = '#9c27b0';
+      messageContent = customMessage && customMessage.trim()
+        ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${customMessage.replace(/\n/g, '<br>')}</p>`
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Nous avons bien reçu votre demande de remboursement pour votre réservation du ${formattedReservationDate}.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Notre équipe va traiter votre demande dans les plus brefs délais. Vous recevrez une confirmation par email une fois le remboursement effectué.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">We have received your refund request for your reservation on ${formattedReservationDate}.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Our team will process your request as soon as possible. You will receive a confirmation email once the refund has been processed.</p>`);
+      break;
+
+    case 'down_payment':
+      subject = language === 'fr'
+        ? 'Paiement d\'acompte - Mor Thai Spa'
+        : 'Down Payment - Mor Thai Spa';
+      bannerText = language === 'fr' ? 'PAIEMENT D\'ACOMPTE' : 'DOWN PAYMENT';
+      bannerColor = '#2196F3';
+      messageContent = customMessage && customMessage.trim()
+        ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${customMessage.replace(/\n/g, '<br>')}</p>`
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Concernant votre réservation du ${formattedReservationDate}, nous vous rappelons que nous acceptons un paiement d'acompte pour confirmer votre réservation.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Merci de nous contacter pour procéder au paiement d'acompte.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Regarding your reservation on ${formattedReservationDate}, we would like to remind you that we accept a down payment to confirm your reservation.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Please contact us to proceed with the down payment.</p>`);
+      break;
+
+    case 'tripadvisor_review':
+      subject = language === 'fr'
+        ? 'Demande d\'avis Tripadvisor - Mor Thai Spa'
+        : 'Tripadvisor Review Request - Mor Thai Spa';
+      bannerText = language === 'fr' ? 'PARTAGEZ VOTRE AVIS' : 'SHARE YOUR REVIEW';
+      bannerColor = '#00af87';
+      messageContent = customMessage && customMessage.trim()
+        ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${customMessage.replace(/\n/g, '<br>')}</p>`
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Nous espérons que vous avez passé un excellent moment lors de votre visite au Mor Thai Spa !</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Votre avis nous tient à cœur. Si vous avez quelques minutes, nous serions ravis si vous pouviez partager votre expérience sur Tripadvisor.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">We hope you had a wonderful time during your visit to Mor Thai Spa!</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Your feedback is important to us. If you have a few minutes, we would be delighted if you could share your experience on Tripadvisor.</p>`);
+      break;
+
+    case 'custom':
+      subject = language === 'fr' ? 'Message - Mor Thai Spa' : 'Message - Mor Thai Spa';
+      bannerText = language === 'fr' ? 'MESSAGE' : 'MESSAGE';
+      bannerColor = '#8B4513';
+      messageContent = customMessage && customMessage.trim()
+        ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${customMessage.replace(/\n/g, '<br>')}</p>`
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Merci de votre confiance.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Thank you for your trust.</p>`);
+      break;
+
     default:
-      return { success: false, error: 'Invalid email type' };
+      // For unknown types, use custom message if provided, otherwise return error
+      if (!customMessage || !customMessage.trim()) {
+        return { success: false, error: 'Invalid email type' };
+      }
+      subject = language === 'fr' ? 'Réservation - Mor Thai Spa' : 'Reservation - Mor Thai Spa';
+      bannerText = language === 'fr' ? 'MESSAGE' : 'MESSAGE';
+      bannerColor = '#8B4513';
+      messageContent = `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${customMessage.replace(/\n/g, '<br>')}</p>`;
   }
+
+  // Show calendar link only for confirm and reminder emails, not for cancel
+  const showCalendarLink = emailType === 'confirm' || emailType === 'reminder';
 
   // Generate HTML email
   const htmlContent = generateEmailHTML({
@@ -423,7 +603,8 @@ export async function sendReservationEmail(reservation, emailType, customMessage
       created_at
     },
     language,
-    customMessage: customMessage && customMessage.trim() ? customMessage : null
+    customMessage: customMessage && customMessage.trim() ? customMessage : null,
+    showCalendarLink
   });
 
   // Generate plain text version
@@ -433,7 +614,15 @@ export async function sendReservationEmail(reservation, emailType, customMessage
       ? `Cher client,\n\n${bannerText}\n\nDétails de la réservation:\n- Service: ${serviceName}\n- Date: ${formattedReservationDate}\n- Heure: ${formattedReservationTime}\n- Total: ${prixtotal} MAD\n\nCordialement,\nMor Thai Spa`
       : `Dear client,\n\n${bannerText}\n\nReservation details:\n- Service: ${serviceName}\n- Date: ${formattedReservationDate}\n- Time: ${formattedReservationTime}\n- Total: ${prixtotal} MAD\n\nBest regards,\nMor Thai Spa`);
 
-  return await sendEmail(email, subject, textContent, htmlContent);
+  const result = await sendEmail(email, subject, textContent, htmlContent);
+  
+  // Return result with email details for storage
+  return {
+    ...result,
+    subject,
+    htmlContent,
+    textContent
+  };
 }
 
 /**
@@ -573,9 +762,98 @@ export async function generateEmailPreview(reservation, emailType, customMessage
              <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">You will find the new details below.</p>`);
       break;
 
+    case 'unavailability':
+      bannerText = language === 'fr' ? 'CRÉNEAU NON DISPONIBLE' : 'SLOT UNAVAILABLE';
+      bannerColor = '#ff9800';
+      messageContent = customMessage && customMessage.trim()
+        ? (isHtmlContent 
+          ? ''
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${escapeHtml(customMessage).replace(/\n/g, '<br>')}</p>`)
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Nous sommes désolés de vous informer que le créneau demandé pour votre réservation (${formattedReservationDate} à ${formattedReservationTime}) n'est malheureusement pas disponible.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Nous vous proposons de choisir une autre date et heure. N'hésitez pas à nous contacter pour trouver une alternative qui vous convient.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">We're sorry to inform you that the requested time slot for your reservation (${formattedReservationDate} at ${formattedReservationTime}) is unfortunately not available.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">We suggest choosing another date and time. Please don't hesitate to contact us to find an alternative that suits you.</p>`);
+      break;
+
+    case 'refund_request':
+      bannerText = language === 'fr' ? 'DEMANDE DE REMBOURSEMENT' : 'REFUND REQUEST';
+      bannerColor = '#9c27b0';
+      messageContent = customMessage && customMessage.trim()
+        ? (isHtmlContent 
+          ? ''
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${escapeHtml(customMessage).replace(/\n/g, '<br>')}</p>`)
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Nous avons bien reçu votre demande de remboursement pour votre réservation du ${formattedReservationDate}.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Notre équipe va traiter votre demande dans les plus brefs délais. Vous recevrez une confirmation par email une fois le remboursement effectué.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">We have received your refund request for your reservation on ${formattedReservationDate}.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Our team will process your request as soon as possible. You will receive a confirmation email once the refund has been processed.</p>`);
+      break;
+
+    case 'down_payment':
+      bannerText = language === 'fr' ? 'PAIEMENT D\'ACOMPTE' : 'DOWN PAYMENT';
+      bannerColor = '#2196F3';
+      messageContent = customMessage && customMessage.trim()
+        ? (isHtmlContent 
+          ? ''
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${escapeHtml(customMessage).replace(/\n/g, '<br>')}</p>`)
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Concernant votre réservation du ${formattedReservationDate}, nous vous rappelons que nous acceptons un paiement d'acompte pour confirmer votre réservation.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Merci de nous contacter pour procéder au paiement d'acompte.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Regarding your reservation on ${formattedReservationDate}, we would like to remind you that we accept a down payment to confirm your reservation.</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Please contact us to proceed with the down payment.</p>`);
+      break;
+
+    case 'tripadvisor_review':
+      bannerText = language === 'fr' ? 'PARTAGEZ VOTRE AVIS' : 'SHARE YOUR REVIEW';
+      bannerColor = '#00af87';
+      messageContent = customMessage && customMessage.trim()
+        ? (isHtmlContent 
+          ? ''
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${escapeHtml(customMessage).replace(/\n/g, '<br>')}</p>`)
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Nous espérons que vous avez passé un excellent moment lors de votre visite au Mor Thai Spa !</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Votre avis nous tient à cœur. Si vous avez quelques minutes, nous serions ravis si vous pouviez partager votre expérience sur Tripadvisor.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">We hope you had a wonderful time during your visit to Mor Thai Spa!</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Your feedback is important to us. If you have a few minutes, we would be delighted if you could share your experience on Tripadvisor.</p>`);
+      break;
+
+    case 'custom':
+      bannerText = language === 'fr' ? 'MESSAGE' : 'MESSAGE';
+      bannerColor = '#8B4513';
+      messageContent = customMessage && customMessage.trim()
+        ? (isHtmlContent 
+          ? ''
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${escapeHtml(customMessage).replace(/\n/g, '<br>')}</p>`)
+        : (language === 'fr'
+          ? `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Cher client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Merci de votre confiance.</p>`
+          : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 10px;">Dear client,</p>
+             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Thank you for your trust.</p>`);
+      break;
+
     default:
-      return { success: false, error: 'Invalid email type' };
+      // For unknown types, use custom message if provided, otherwise return error
+      if (!customMessage || !customMessage.trim()) {
+        return { success: false, error: 'Invalid email type' };
+      }
+      bannerText = language === 'fr' ? 'MESSAGE' : 'MESSAGE';
+      bannerColor = '#8B4513';
+      messageContent = isHtmlContent 
+        ? ''
+        : `<p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">${escapeHtml(customMessage).replace(/\n/g, '<br>')}</p>`;
   }
+
+  // Show calendar link only for confirm and reminder emails, not for cancel
+  const showCalendarLink = emailType === 'confirm' || emailType === 'reminder';
 
   // Generate HTML email
   const htmlContent = generateEmailHTML({
@@ -597,7 +875,8 @@ export async function generateEmailPreview(reservation, emailType, customMessage
       created_at
     },
     language,
-    customMessage: customMessage && customMessage.trim() ? customMessage : null
+    customMessage: customMessage && customMessage.trim() ? customMessage : null,
+    showCalendarLink
   });
 
   return { success: true, html: htmlContent };
