@@ -1,26 +1,27 @@
 import express from 'express';
 import {
+  createReservation,
+  deleteReservation,
   getAllReservations,
+  getCurrentAdminViewedButNotModified,
   getReservationById,
   getReservationsByDate,
   getReservationsByStatus,
-  createReservation,
-  updateReservation,
-  deleteReservation,
   getViewedButNotModifiedNotifications,
-  sendWhatsApp,
+  previewEmail,
   sendEmail,
-  previewEmail
+  sendWhatsApp,
+  updateReservation
 } from '../controllers/reservationController.js';
-import {
-  getReservationNotes,
-  addReservationNote,
-  deleteReservationNote
-} from '../controllers/reservationNoteController.js';
 import {
   getReservationEmails,
   syncGmailEmails
 } from '../controllers/reservationEmailController.js';
+import {
+  addReservationNote,
+  deleteReservationNote,
+  getReservationNotes
+} from '../controllers/reservationNoteController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -138,6 +139,28 @@ router.get('/notifications/viewed-not-modified', authenticateToken, getViewedBut
 
 /**
  * @swagger
+ * /api/reservations/notifications/current-admin-viewed:
+ *   get:
+ *     summary: Get reservations viewed by current admin but not modified
+ *     tags: [Reservations]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of reservations viewed by current admin but not modified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Reservation'
+ *       401:
+ *         description: Admin email not found in token
+ */
+router.get('/notifications/current-admin-viewed', authenticateToken, getCurrentAdminViewedButNotModified);
+
+/**
+ * @swagger
  * /api/reservations/date/{date}:
  *   get:
  *     summary: Get reservations by date
@@ -217,7 +240,7 @@ router.get('/status/:status', getReservationsByStatus);
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/:id', getReservationById);
+router.get('/:id', authenticateToken, getReservationById);
 
 /**
  * @swagger

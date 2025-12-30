@@ -1,5 +1,4 @@
 import pool from '../config/database.js';
-import { Offre } from './Offre.js';
 
 export class Reservation {
   // Get all reservations with optional filters
@@ -11,8 +10,28 @@ export class Reservation {
 
     // Get reservations
     let query = `
-      SELECT r.*, 
+      SELECT 
+        r.reservation_uuid,
+        r.nomclient,
+        r.email,
+        r.numerotelephone,
+        r.dateres,
+        r.heureres,
+        r.service_uuid,
+        r.modepaiement,
+        r.prixtotal,
+        r.nbrpersonne,
+        r.statusres,
+        r.note,
+        r.created_at,
+        r.updated_at,
+        r.reference,
         COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        COALESCE(r.is_viewed, FALSE) as is_viewed,
+        r.last_viewed_by,
+        r.last_viewed_at,
+        r.last_modified_by,
+        r.last_modified_at,
         s.nomservice_fr as "NomServiceFr",
         s.nomservice_en as "NomServiceEn",
         s.nomservice as "NomService",
@@ -159,8 +178,28 @@ export class Reservation {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
     
     let query = `
-      SELECT r.*, 
+      SELECT 
+        r.reservation_uuid,
+        r.nomclient,
+        r.email,
+        r.numerotelephone,
+        r.dateres,
+        r.heureres,
+        r.service_uuid,
+        r.modepaiement,
+        r.prixtotal,
+        r.nbrpersonne,
+        r.statusres,
+        r.note,
+        r.created_at,
+        r.updated_at,
+        r.reference,
         COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        COALESCE(r.is_viewed, FALSE) as is_viewed,
+        r.last_viewed_by,
+        r.last_viewed_at,
+        r.last_modified_by,
+        r.last_modified_at,
         s.nomservice as "NomService", 
         s.nomservice_fr as "NomServiceFr",
         s.nomservice_en as "NomServiceEn"
@@ -175,15 +214,76 @@ export class Reservation {
       query += `COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) = $1`;
     }
     
-    const result = await pool.query(query, [identifier]);
-    return result.rows[0];
+    try {
+      const result = await pool.query(query, [identifier]);
+      return result.rows[0];
+    } catch (error) {
+      // If is_viewed column doesn't exist, try without it
+      if (error.message && error.message.includes('is_viewed')) {
+        let fallbackQuery = `
+          SELECT 
+            r.reservation_uuid,
+            r.nomclient,
+            r.email,
+            r.numerotelephone,
+            r.dateres,
+            r.heureres,
+            r.service_uuid,
+            r.modepaiement,
+            r.prixtotal,
+            r.nbrpersonne,
+            r.statusres,
+            r.note,
+            r.created_at,
+            r.updated_at,
+            r.reference,
+            COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+            FALSE as is_viewed,
+            s.nomservice as "NomService", 
+            s.nomservice_fr as "NomServiceFr",
+            s.nomservice_en as "NomServiceEn"
+          FROM reservation r 
+          LEFT JOIN service s ON r.service_uuid = s.service_uuid 
+          WHERE `;
+        
+        if (isUUID) {
+          fallbackQuery += `r.reservation_uuid = $1`;
+        } else {
+          fallbackQuery += `COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) = $1`;
+        }
+        
+        const fallbackResult = await pool.query(fallbackQuery, [identifier]);
+        return fallbackResult.rows[0];
+      }
+      throw error;
+    }
   }
 
   // Get reservations by date
   static async getByDate(date) {
     const result = await pool.query(`
-      SELECT r.*, 
+      SELECT 
+        r.reservation_uuid,
+        r.nomclient,
+        r.email,
+        r.numerotelephone,
+        r.dateres,
+        r.heureres,
+        r.service_uuid,
+        r.modepaiement,
+        r.prixtotal,
+        r.nbrpersonne,
+        r.statusres,
+        r.note,
+        r.created_at,
+        r.updated_at,
+        r.reference,
         COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        COALESCE(r.is_viewed, FALSE) as is_viewed,
+        r.last_viewed_by,
+        r.last_viewed_at,
+        r.last_modified_by,
+        r.last_modified_at,
         s.nomservice as "NomService", 
         s.nomservice_fr as "NomServiceFr",
         s.nomservice_en as "NomServiceEn"
@@ -198,8 +298,28 @@ export class Reservation {
   // Get reservations by status
   static async getByStatus(status) {
     const result = await pool.query(`
-      SELECT r.*, 
+      SELECT 
+        r.reservation_uuid,
+        r.nomclient,
+        r.email,
+        r.numerotelephone,
+        r.dateres,
+        r.heureres,
+        r.service_uuid,
+        r.modepaiement,
+        r.prixtotal,
+        r.nbrpersonne,
+        r.statusres,
+        r.note,
+        r.created_at,
+        r.updated_at,
+        r.reference,
         COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        COALESCE(r.is_viewed, FALSE) as is_viewed,
+        r.last_viewed_by,
+        r.last_viewed_at,
+        r.last_modified_by,
+        r.last_modified_at,
         s.nomservice as "NomService", 
         s.nomservice_fr as "NomServiceFr",
         s.nomservice_en as "NomServiceEn"
@@ -312,8 +432,28 @@ export class Reservation {
     // If update was successful, get full details with service name
     if (result.rows[0]) {
       const fullDetails = await pool.query(`
-        SELECT r.*, 
+        SELECT 
+          r.reservation_uuid,
+          r.nomclient,
+          r.email,
+          r.numerotelephone,
+          r.dateres,
+          r.heureres,
+          r.service_uuid,
+          r.modepaiement,
+          r.prixtotal,
+          r.nbrpersonne,
+          r.statusres,
+          r.note,
+          r.created_at,
+          r.updated_at,
+          r.reference,
           COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+          COALESCE(r.is_viewed, FALSE) as is_viewed,
+          r.last_viewed_by,
+          r.last_viewed_at,
+          r.last_modified_by,
+          r.last_modified_at,
           s.nomservice as "NomService", 
           s.nomservice_fr as "NomServiceFr",
           s.nomservice_en as "NomServiceEn"
@@ -329,35 +469,147 @@ export class Reservation {
 
   // Mark reservation as viewed
   static async markAsViewed(reservationUuid, viewedBy = null) {
-    const result = await pool.query(
-      'UPDATE reservation SET is_viewed = TRUE, last_viewed_by = $2, last_viewed_at = CURRENT_TIMESTAMP WHERE reservation_uuid = $1 RETURNING *',
-      [reservationUuid, viewedBy]
-    );
-    return result.rows[0];
+    try {
+      // First check if is_viewed column exists
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'reservation' AND column_name = 'is_viewed'
+      `);
+      
+      if (columnCheck.rows.length === 0) {
+        // Column doesn't exist, return null to indicate it couldn't be marked
+        console.warn('⚠️ is_viewed column does not exist in reservation table');
+        return null;
+      }
+      
+      const result = await pool.query(
+        'UPDATE reservation SET is_viewed = TRUE, last_viewed_by = $2, last_viewed_at = CURRENT_TIMESTAMP WHERE reservation_uuid = $1 RETURNING *',
+        [reservationUuid, viewedBy]
+      );
+      return result.rows[0];
+    } catch (error) {
+      // If column doesn't exist or other error, log and return null
+      console.warn('⚠️ Error marking reservation as viewed:', error.message);
+      return null;
+    }
   }
 
   // Get reservations viewed but not modified (for admin notifications)
   static async getViewedButNotModified(currentAdminEmail) {
-    const result = await pool.query(
-      `SELECT r.*, 
-        COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
-        s.nomservice_fr as "NomServiceFr",
-        s.nomservice as "NomService",
-        u.nom as "viewed_by_name"
-      FROM reservation r 
-      LEFT JOIN service s ON r.service_uuid = s.service_uuid 
-      INNER JOIN users u ON r.last_viewed_by = u.email
-      WHERE r.is_viewed = TRUE 
-        AND r.last_viewed_by IS NOT NULL
-        AND r.last_viewed_by != $1
-        AND r.last_viewed_by != 'unknown'
-        AND u.nom IS NOT NULL
-        AND (r.last_modified_at IS NULL OR r.last_viewed_at > r.last_modified_at)
-      ORDER BY r.last_viewed_at DESC
-      LIMIT 10`,
-      [currentAdminEmail]
-    );
-    return result.rows;
+    try {
+      // Check if is_viewed column exists
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'reservation' AND column_name = 'is_viewed'
+      `);
+      
+      if (columnCheck.rows.length === 0) {
+        // Column doesn't exist, return empty array
+        return [];
+      }
+      
+      const result = await pool.query(
+        `SELECT 
+          r.reservation_uuid,
+          r.nomclient,
+          r.email,
+          r.numerotelephone,
+          r.dateres,
+          r.heureres,
+          r.service_uuid,
+          r.modepaiement,
+          r.prixtotal,
+          r.nbrpersonne,
+          r.statusres,
+          r.note,
+          r.created_at,
+          r.updated_at,
+          r.reference,
+          COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+          r.is_viewed,
+          r.last_viewed_by,
+          r.last_viewed_at,
+          r.last_modified_by,
+          r.last_modified_at,
+          s.nomservice_fr as "NomServiceFr",
+          s.nomservice as "NomService",
+          u.nom as "viewed_by_name"
+        FROM reservation r 
+        LEFT JOIN service s ON r.service_uuid = s.service_uuid 
+        INNER JOIN users u ON r.last_viewed_by = u.email
+        WHERE r.is_viewed = TRUE 
+          AND r.last_viewed_by IS NOT NULL
+          AND r.last_viewed_by != $1
+          AND r.last_viewed_by != 'unknown'
+          AND u.nom IS NOT NULL
+          AND (r.last_modified_at IS NULL OR r.last_viewed_at > r.last_modified_at)
+        ORDER BY r.last_viewed_at DESC
+        LIMIT 10`,
+        [currentAdminEmail]
+      );
+      return result.rows;
+    } catch (error) {
+      console.warn('⚠️ Error getting viewed but not modified reservations:', error.message);
+      return [];
+    }
+  }
+
+  // Get reservations viewed by current admin but not modified
+  static async getCurrentAdminViewedButNotModified(adminEmail) {
+    try {
+      // Check if is_viewed column exists
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'reservation' AND column_name = 'is_viewed'
+      `);
+      
+      if (columnCheck.rows.length === 0) {
+        // Column doesn't exist, return empty array
+        return [];
+      }
+      
+      const result = await pool.query(
+        `SELECT 
+          r.reservation_uuid,
+          r.nomclient,
+          r.email,
+          r.numerotelephone,
+          r.dateres,
+          r.heureres,
+          r.service_uuid,
+          r.modepaiement,
+          r.prixtotal,
+          r.nbrpersonne,
+          r.statusres,
+          r.note,
+          r.created_at,
+          r.updated_at,
+          r.reference,
+          COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+          r.is_viewed,
+          r.last_viewed_by,
+          r.last_viewed_at,
+          r.last_modified_by,
+          r.last_modified_at,
+          s.nomservice_fr as "NomServiceFr",
+          s.nomservice as "NomService"
+        FROM reservation r 
+        LEFT JOIN service s ON r.service_uuid = s.service_uuid 
+        WHERE r.is_viewed = TRUE 
+          AND r.last_viewed_by = $1
+          AND (r.last_modified_at IS NULL OR r.last_viewed_at > r.last_modified_at)
+          AND r.last_modified_by IS NULL
+        ORDER BY r.last_viewed_at DESC`,
+        [adminEmail]
+      );
+      return result.rows;
+    } catch (error) {
+      console.warn('⚠️ Error getting current admin viewed but not modified reservations:', error.message);
+      return [];
+    }
   }
 
   // Delete reservation

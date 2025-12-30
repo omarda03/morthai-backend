@@ -1,7 +1,7 @@
 import { Reservation } from '../models/Reservation.js';
 import { ReservationEmail } from '../models/ReservationEmail.js';
+import { generateEmailPreview, sendReservationEmail, sendTeamNotificationEmail } from '../services/emailService.js';
 import { sendReservationConfirmation, sendWhatsAppMessage } from '../services/whatsappService.js';
-import { sendReservationEmail, generateEmailPreview } from '../services/emailService.js';
 
 export const getAllReservations = async (req, res) => {
   try {
@@ -61,21 +61,28 @@ export const getReservationById = async (req, res) => {
     
     console.log('Admin viewing reservation:', adminEmail);
     
-    // Only track if we have a valid admin email
-    if (adminEmail) {
-      if (!reservation.is_viewed) {
-        await Reservation.markAsViewed(id, adminEmail);
-        reservation.is_viewed = true;
-        reservation.last_viewed_by = adminEmail;
-        reservation.last_viewed_at = new Date();
-      } else if (reservation.last_viewed_by !== adminEmail) {
-        // Update viewed by current admin even if already viewed by someone else
-        await Reservation.markAsViewed(id, adminEmail);
-        reservation.last_viewed_by = adminEmail;
-        reservation.last_viewed_at = new Date();
+    // Only track if we have a valid admin email and is_viewed column exists
+    if (adminEmail && reservation.hasOwnProperty('is_viewed')) {
+      try {
+        if (!reservation.is_viewed) {
+          await Reservation.markAsViewed(id, adminEmail);
+          reservation.is_viewed = true;
+          reservation.last_viewed_by = adminEmail;
+          reservation.last_viewed_at = new Date();
+        } else if (reservation.last_viewed_by !== adminEmail) {
+          // Update viewed by current admin even if already viewed by someone else
+          await Reservation.markAsViewed(id, adminEmail);
+          reservation.last_viewed_by = adminEmail;
+          reservation.last_viewed_at = new Date();
+        }
+      } catch (markError) {
+        // If markAsViewed fails (column doesn't exist), just continue without tracking
+        console.warn('⚠️ Could not mark reservation as viewed:', markError.message);
       }
     } else {
-      console.warn('⚠️ No admin email found in JWT token - not tracking view');
+      if (!adminEmail) {
+        console.warn('⚠️ No admin email found in JWT token - not tracking view');
+      }
     }
     
     console.log('Reservation found:', reservation.reservation_uuid);
@@ -137,14 +144,47 @@ export const createReservation = async (req, res) => {
     const reservation = await Reservation.create(reservationData);
     console.log('Reservation created successfully:', reservation.reservation_uuid);
     
+    // Get full reservation with service details for email
+    const fullReservation = await Reservation.getById(reservation.reservation_uuid);
+    
     // Emit WebSocket event for new reservation
     const io = req.app.get('io');
     if (io) {
-      io.to('admin').emit('new:reservation', reservation);
+      io.to('admin').emit('new:reservation', fullReservation);
       console.log('Emitted new:reservation event');
     }
     
-    res.status(201).json(reservation);
+    // Automatically send "request" email to the client
+    // Send email asynchronously to not block the response
+    sendReservationEmail(fullReservation, 'request', null, 'fr')
+      .then((emailResult) => {
+        if (emailResult.success) {
+          console.log('✅ Request email sent successfully to:', fullReservation.email);
+        } else {
+          console.error('❌ Failed to send request email:', emailResult.error);
+        }
+      })
+      .catch((emailError) => {
+        console.error('❌ Error sending request email:', emailError);
+        // Don't fail the reservation creation if email fails
+      });
+    
+    // Automatically send team notification email
+    // Send email asynchronously to not block the response
+    sendTeamNotificationEmail(fullReservation)
+      .then((emailResult) => {
+        if (emailResult.success) {
+          console.log('✅ Team notification email sent successfully');
+        } else {
+          console.error('❌ Failed to send team notification email:', emailResult.error);
+        }
+      })
+      .catch((emailError) => {
+        console.error('❌ Error sending team notification email:', emailError);
+        // Don't fail the reservation creation if email fails
+      });
+    
+    res.status(201).json(fullReservation);
   } catch (error) {
     console.error('Error creating reservation:', error);
     console.error('Error stack:', error.stack);
@@ -248,6 +288,28 @@ export const getViewedButNotModifiedNotifications = async (req, res) => {
     res.json(notifications);
   } catch (error) {
     console.error('🔔 Error fetching viewed but not modified notifications:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getCurrentAdminViewedButNotModified = async (req, res) => {
+  try {
+    // Get current admin email from JWT token
+    const adminEmail = req.user?.email || 'unknown';
+    
+    if (adminEmail === 'unknown') {
+      return res.status(401).json({ error: 'Admin email not found in token.' });
+    }
+    
+    console.log('🔔 Getting current admin viewed but not modified reservations for:', adminEmail);
+    
+    const reservations = await Reservation.getCurrentAdminViewedButNotModified(adminEmail);
+    
+    console.log('🔔 Found reservations:', reservations.length);
+    
+    res.json(reservations);
+  } catch (error) {
+    console.error('🔔 Error fetching current admin viewed but not modified reservations:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -396,6 +458,11 @@ export const sendEmail = async (req, res) => {
           subject = lang === 'fr' 
             ? 'Confirmation de votre réservation - Mor Thai Spa'
             : 'Reservation Confirmation - Mor Thai Spa';
+          break;
+        case 'request':
+          subject = lang === 'fr' 
+            ? 'Demande de réservation reçue - Mor Thai Spa'
+            : 'Reservation Request Received - Mor Thai Spa';
           break;
         case 'unavailability':
           subject = lang === 'fr'
