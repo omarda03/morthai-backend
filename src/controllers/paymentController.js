@@ -1,5 +1,6 @@
 import { createPaymentRequest, generatePaymentForm, verifyHash, handlePaymentData } from '../utils/paymentHelper.js';
 import { Reservation } from '../models/Reservation.js';
+import { Offre } from '../models/Offre.js';
 
 /**
  * Create payment request for a reservation
@@ -97,6 +98,101 @@ export const createPayment = async (req, res) => {
 };
 
 /**
+ * Create payment request for an offer
+ */
+export const createOfferPayment = async (req, res) => {
+  try {
+    const { offerId } = req.params;
+    const { firstName, lastName, email, phone, amount, reference } = req.body;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email || !phone || !amount) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: firstName, lastName, email, phone, amount' 
+      });
+    }
+
+    // Get offer to get reference if not provided
+    let offerReference = reference;
+    if (!offerReference && offerId) {
+      try {
+        const offer = await Offre.getById(offerId);
+        if (offer && offer.codeunique) {
+          offerReference = offer.codeunique;
+        } else {
+          // Use offer UUID as fallback
+          offerReference = offerId;
+        }
+      } catch (err) {
+        console.warn('Could not fetch offer for reference:', err);
+        offerReference = offerId;
+      }
+    }
+
+    if (!offerReference) {
+      return res.status(400).json({ 
+        error: 'Reference or offerId is required' 
+      });
+    }
+
+    // Get CMI credentials from environment
+    const clientId = process.env.CMI_CLIENT_ID;
+    const storeKey = process.env.CMI_STORE_KEY;
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const backendUrl = process.env.BACKEND_URL || process.env.BASE_URL || 'http://localhost:3001';
+
+    if (!clientId || !storeKey) {
+      return res.status(500).json({ 
+        error: 'CMI payment gateway credentials not configured' 
+      });
+    }
+
+    // Payment URLs
+    const urls = {
+      successUrl: `${baseUrl}/payment/success`,
+      failUrl: `${baseUrl}/payment/fail`,
+      callbackUrl: `${backendUrl}/api/payment/callback`,
+      shopUrl: baseUrl
+    };
+
+    // Use offer reference or UUID as order ID
+    const orderReference = offerReference;
+
+    // Create payment request data
+    const paymentData = createPaymentRequest(
+      {
+        firstName,
+        lastName,
+        email,
+        phone,
+        amount,
+        reference: orderReference,
+        address: '',
+        postalCode: ''
+      },
+      clientId,
+      storeKey,
+      urls
+    );
+
+    // Generate payment form HTML
+    const formHtml = generatePaymentForm(paymentData);
+
+    res.json({
+      status: 200,
+      form: formHtml,
+      paymentData: paymentData // For debugging purposes, remove in production
+    });
+  } catch (error) {
+    console.error('Error creating offer payment:', error);
+    res.status(500).json({
+      status: 500,
+      error: error.message
+    });
+  }
+};
+
+/**
  * Handle CMI payment callback (server-to-server)
  */
 export const paymentCallback = async (req, res) => {
@@ -123,12 +219,12 @@ export const paymentCallback = async (req, res) => {
     });
 
     if (verification !== 'FAILURE') {
-      // Extract reservation reference from oid
-      // oid can be reservation UUID or reference like "MOR-1234567890"
+      // Try to find reservation first
       let reservation = null;
+      let offer = null;
       
       try {
-        // First try as UUID (direct lookup)
+        // First try as UUID (direct lookup for reservation)
         if (oid) {
           reservation = await Reservation.getById(oid);
           
@@ -140,9 +236,20 @@ export const paymentCallback = async (req, res) => {
               reservation = reservations[0];
             }
           }
+
+          // If not a reservation, try as offer
+          if (!reservation) {
+            // Try as offer UUID
+            offer = await Offre.getById(oid);
+            
+            // If not found by UUID, try by codeunique
+            if (!offer) {
+              offer = await Offre.getByCode(oid);
+            }
+          }
         }
       } catch (err) {
-        console.error('Error fetching reservation:', err);
+        console.error('Error fetching reservation/offer:', err);
       }
 
       if (reservation) {
@@ -162,8 +269,19 @@ export const paymentCallback = async (req, res) => {
           });
           console.log(`⚠️ Payment approved for reservation ${reservation.reservation_uuid}, but needs verification`);
         }
+      } else if (offer) {
+        // Update offer status based on payment result
+        // Note: You may want to add a status field to the offre table
+        // For now, we'll just log the success
+        if (verification === 'POSTAUTH' && ProcReturnCode === '00') {
+          // Payment successful - offer is completed
+          console.log(`✅ Payment successful for offer ${offer.offre_uuid}`);
+          // You can add offer status update here if you have a status field
+        } else if (verification === 'APPROVED') {
+          console.log(`⚠️ Payment approved for offer ${offer.offre_uuid}, but needs verification`);
+        }
       } else {
-        console.warn(`⚠️ Reservation not found for order ID: ${oid}`);
+        console.warn(`⚠️ Reservation/Offer not found for order ID: ${oid}`);
       }
 
       // CMI expects "OK" response for successful callback processing

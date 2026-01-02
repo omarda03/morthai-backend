@@ -9,44 +9,65 @@ export class Offre {
 
   // Get all offers
   static async getAll() {
-    const result = await pool.query(`
-      SELECT o.*, 
-             cc.theme as "CarteTheme", cc.prix as "CartePrix",
-             s.nomservice as "NomService", s.prix as "ServicePrix"
-      FROM offre o 
-      LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
-      LEFT JOIN service s ON o.service = s.service_uuid 
-      ORDER BY o.created_at DESC
-    `);
-    return result.rows;
+    try {
+      const result = await pool.query(`
+        SELECT o.*, 
+               cc.theme as "CarteTheme", cc.prix as "CartePrix",
+               s.nomservice as "NomService", s.nomservice_fr as "NomServiceFr", s.nomservice_en as "NomServiceEn",
+               so.prix_mad as "ServicePrix"
+        FROM offre o 
+        LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
+        LEFT JOIN service s ON o.service = s.service_uuid 
+        LEFT JOIN service_offers so ON s.service_uuid = so.service_uuid AND so.durée = o.durée
+        ORDER BY o.created_at DESC
+      `);
+      return result.rows;
+    } catch (error) {
+      console.error('Error in Offre.getAll():', error);
+      throw error;
+    }
   }
 
   // Get offer by ID
   static async getById(offreUuid) {
-    const result = await pool.query(`
-      SELECT o.*, 
-             cc.theme as "CarteTheme", cc.prix as "CartePrix",
-             s.nomservice as "NomService", s.prix as "ServicePrix", s.durée as "ServiceDuree"
-      FROM offre o 
-      LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
-      LEFT JOIN service s ON o.service = s.service_uuid 
-      WHERE o.offre_uuid = $1
-    `, [offreUuid]);
-    return result.rows[0];
+    try {
+      const result = await pool.query(`
+        SELECT o.*, 
+               cc.theme as "CarteTheme", cc.prix as "CartePrix",
+               s.nomservice as "NomService", s.nomservice_fr as "NomServiceFr", s.nomservice_en as "NomServiceEn",
+               so.prix_mad as "ServicePrix"
+        FROM offre o 
+        LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
+        LEFT JOIN service s ON o.service = s.service_uuid 
+        LEFT JOIN service_offers so ON s.service_uuid = so.service_uuid AND so.durée = o.durée
+        WHERE o.offre_uuid = $1
+      `, [offreUuid]);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error in Offre.getById():', error);
+      throw error;
+    }
   }
 
   // Get offer by unique code
   static async getByCode(codeUnique) {
-    const result = await pool.query(`
-      SELECT o.*, 
-             cc.theme as "CarteTheme", cc.prix as "CartePrix",
-             s.nomservice as "NomService", s.prix as "ServicePrix", s.durée as "ServiceDuree"
-      FROM offre o 
-      LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
-      LEFT JOIN service s ON o.service = s.service_uuid 
-      WHERE o.codeunique = $1
-    `, [codeUnique]);
-    return result.rows[0];
+    try {
+      const result = await pool.query(`
+        SELECT o.*, 
+               cc.theme as "CarteTheme", cc.prix as "CartePrix",
+               s.nomservice as "NomService", s.nomservice_fr as "NomServiceFr", s.nomservice_en as "NomServiceEn",
+               so.prix_mad as "ServicePrix"
+        FROM offre o 
+        LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
+        LEFT JOIN service s ON o.service = s.service_uuid 
+        LEFT JOIN service_offers so ON s.service_uuid = so.service_uuid AND so.durée = o.durée
+        WHERE o.codeunique = $1
+      `, [codeUnique]);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error in Offre.getByCode():', error);
+      throw error;
+    }
   }
 
   // Create new offer
@@ -66,11 +87,30 @@ export class Offre {
     // Generate unique code if not provided
     const uniqueCode = CodeUnique || this.generateUniqueCode();
     
+    // If CarteCadeaux is not provided, create or get a default generic gift card
+    let carteCadeauxId = CarteCadeaux;
+    if (!carteCadeauxId) {
+      // Try to find or create a default "Generic" gift card
+      const defaultCardResult = await pool.query(
+        `SELECT carteid FROM cartecadeaux WHERE theme = 'Generic' OR theme = 'Générique' LIMIT 1`
+      );
+      
+      if (defaultCardResult.rows.length > 0) {
+        carteCadeauxId = defaultCardResult.rows[0].carteid;
+      } else {
+        // Create a default generic gift card
+        const newCardResult = await pool.query(
+          `INSERT INTO cartecadeaux (theme, prix) VALUES ('Generic', 0) RETURNING carteid`
+        );
+        carteCadeauxId = newCardResult.rows[0].carteid;
+      }
+    }
+    
     const result = await pool.query(
       `INSERT INTO offre 
        (nombeneficiaire, emailbeneficiaire, numtelephonebeneficiaire, nomenvoyeur, note, cartecadeaux, service, durée, codeunique) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [NomBeneficiaire, EmailBeneficiaire, NumTelephoneBeneficiaire, NomEnvoyeur, Note, CarteCadeaux, Service, Durée, uniqueCode]
+      [NomBeneficiaire, EmailBeneficiaire, NumTelephoneBeneficiaire, NomEnvoyeur, Note, carteCadeauxId, Service, Durée, uniqueCode]
     );
     return result.rows[0];
   }

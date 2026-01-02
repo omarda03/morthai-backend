@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   createPayment,
+  createOfferPayment,
   paymentCallback,
   verifyPayment
 } from '../controllers/paymentController.js';
@@ -73,6 +74,73 @@ const router = express.Router();
  *         description: Server error or CMI not configured
  */
 router.post('/reservation/:reservationId', createPayment);
+
+/**
+ * @swagger
+ * /api/payment/offer/{offerId}:
+ *   post:
+ *     summary: Create payment request for an offer
+ *     tags: [Payment]
+ *     parameters:
+ *       - in: path
+ *         name: offerId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Offer UUID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firstName
+ *               - lastName
+ *               - email
+ *               - phone
+ *               - amount
+ *               - reference
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 example: "Jean"
+ *               lastName:
+ *                 type: string
+ *                 example: "Dupont"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "jean@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "+212612345678"
+ *               amount:
+ *                 type: number
+ *                 example: 500.00
+ *               reference:
+ *                 type: string
+ *                 example: "A1B2C3D4"
+ *     responses:
+ *       200:
+ *         description: Payment form HTML generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: number
+ *                   example: 200
+ *                 form:
+ *                   type: string
+ *                   description: HTML form string to submit to CMI
+ *       400:
+ *         description: Missing required fields
+ *       500:
+ *         description: Server error or CMI not configured
+ */
+router.post('/offer/:offerId', createOfferPayment);
 
 /**
  * @swagger

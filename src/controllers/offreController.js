@@ -5,7 +5,11 @@ export const getAllOffres = async (req, res) => {
     const offres = await Offre.getAll();
     res.json(offres);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error in getAllOffres controller:', error);
+    res.status(500).json({ 
+      error: error.message || 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
