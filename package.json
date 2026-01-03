@@ -12,6 +12,7 @@
     "migrate:reservation-sequence": "node src/database/migrate_reservation_sequence.js",
     "migrate:reservation-notes": "node src/database/migrate_reservation_notes.js",
     "migrate:reservation-emails": "node src/database/migrate_reservation_emails.js",
+    "migrate:offre-status": "node src/database/migrate_offre_status.js",
     "seed:services": "node src/database/seed-services.js",
     "add:service-images": "node src/database/add-service-images.js",
     "backup": "node backup-database.js create",

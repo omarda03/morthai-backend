@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS offre (
     service UUID NOT NULL,
     durée INTEGER NOT NULL,
     codeunique VARCHAR(50) UNIQUE NOT NULL,
+    status VARCHAR(50) DEFAULT 'en attente',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cartecadeaux) REFERENCES cartecadeaux(carteid) ON DELETE CASCADE,

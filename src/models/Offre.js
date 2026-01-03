@@ -108,9 +108,9 @@ export class Offre {
     
     const result = await pool.query(
       `INSERT INTO offre 
-       (nombeneficiaire, emailbeneficiaire, numtelephonebeneficiaire, nomenvoyeur, note, cartecadeaux, service, durée, codeunique) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [NomBeneficiaire, EmailBeneficiaire, NumTelephoneBeneficiaire, NomEnvoyeur, Note, carteCadeauxId, Service, Durée, uniqueCode]
+       (nombeneficiaire, emailbeneficiaire, numtelephonebeneficiaire, nomenvoyeur, note, cartecadeaux, service, durée, codeunique, status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [NomBeneficiaire, EmailBeneficiaire, NumTelephoneBeneficiaire, NomEnvoyeur, Note, carteCadeauxId, Service, Durée, uniqueCode, 'en attente']
     );
     return result.rows[0];
   }
@@ -126,16 +126,69 @@ export class Offre {
       CarteCadeaux,
       Service,
       Durée,
-      CodeUnique
+      CodeUnique,
+      Status
     } = data;
+    
+    // Build dynamic update query based on provided fields
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+    
+    if (NomBeneficiaire !== undefined) {
+      updates.push(`nombeneficiaire = $${paramIndex++}`);
+      values.push(NomBeneficiaire);
+    }
+    if (EmailBeneficiaire !== undefined) {
+      updates.push(`emailbeneficiaire = $${paramIndex++}`);
+      values.push(EmailBeneficiaire);
+    }
+    if (NumTelephoneBeneficiaire !== undefined) {
+      updates.push(`numtelephonebeneficiaire = $${paramIndex++}`);
+      values.push(NumTelephoneBeneficiaire);
+    }
+    if (NomEnvoyeur !== undefined) {
+      updates.push(`nomenvoyeur = $${paramIndex++}`);
+      values.push(NomEnvoyeur);
+    }
+    if (Note !== undefined) {
+      updates.push(`note = $${paramIndex++}`);
+      values.push(Note);
+    }
+    if (CarteCadeaux !== undefined) {
+      updates.push(`cartecadeaux = $${paramIndex++}`);
+      values.push(CarteCadeaux);
+    }
+    if (Service !== undefined) {
+      updates.push(`service = $${paramIndex++}`);
+      values.push(Service);
+    }
+    if (Durée !== undefined) {
+      updates.push(`durée = $${paramIndex++}`);
+      values.push(Durée);
+    }
+    if (CodeUnique !== undefined) {
+      updates.push(`codeunique = $${paramIndex++}`);
+      values.push(CodeUnique);
+    }
+    if (Status !== undefined) {
+      updates.push(`status = $${paramIndex++}`);
+      values.push(Status);
+    }
+    
+    if (updates.length === 0) {
+      // No fields to update, return current offer
+      return await this.getById(offreUuid);
+    }
+    
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(offreUuid);
     
     const result = await pool.query(
       `UPDATE offre 
-       SET nombeneficiaire = $1, emailbeneficiaire = $2, numtelephonebeneficiaire = $3, 
-           nomenvoyeur = $4, note = $5, cartecadeaux = $6, service = $7, durée = $8, 
-           codeunique = $9, updated_at = CURRENT_TIMESTAMP 
-       WHERE offre_uuid = $10 RETURNING *`,
-      [NomBeneficiaire, EmailBeneficiaire, NumTelephoneBeneficiaire, NomEnvoyeur, Note, CarteCadeaux, Service, Durée, CodeUnique, offreUuid]
+       SET ${updates.join(', ')}
+       WHERE offre_uuid = $${paramIndex} RETURNING *`,
+      values
     );
     return result.rows[0];
   }
