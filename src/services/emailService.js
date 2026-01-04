@@ -212,7 +212,7 @@ async function generateRequestEmailHTML({
           <!-- Header Image -->
           <tr>
             <td>
-              <img src="https://images.unsplash.com/photo-1600334129128-685c5582fd35"
+              <img src="${BASE_URL}/homepage/${encodeURIComponent("Page d'accueil Nos massages.webp")}"
                    width="600"
                    alt="Mor Thai Spa"
                    style="display:block; width:100%; height:auto;">
@@ -299,9 +299,10 @@ async function generateRequestEmailHTML({
             <td align="center" style="padding:16px; background-color:#f0ede8; font-size:12px; color:#666;">
               <!-- Contact Information -->
               <div style="margin-bottom:12px; line-height:1.8;">
-                <p style="margin:4px 0;"><strong>Adresse :</strong> N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (à l'arrière Le Centre Américain).</p>
-                <p style="margin:4px 0;"><strong>Téléphone :</strong> +212 524 207 055</p>
-                <p style="margin:4px 0;"><strong>Email :</strong> contact@morthai-marrakech.com</p>
+                <p style="margin:4px 0;"><strong>Adresse :</strong> <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech')}" target="_blank" style="color:#6b7b66; text-decoration:underline;">N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (à l'arrière Le Centre Américain).</a></p>
+                <p style="margin:4px 0;"><strong>Téléphone :</strong> <a href="tel:+212524207055" style="color:#6b7b66; text-decoration:underline;">+212 524 207 055</a></p>
+                <p style="margin:4px 0;"><strong>WhatsApp :</strong> <a href="https://wa.me/212610200040" target="_blank" style="color:#6b7b66; text-decoration:underline;">+212 610 200 040</a></p>
+                <p style="margin:4px 0;"><strong>Email :</strong> <a href="mailto:contact@morthai-marrakech.com" style="color:#6b7b66; text-decoration:underline;">contact@morthai-marrakech.com</a></p>
               </div>
               <!-- Social Media Icons -->
               <div style="margin-bottom:12px;">
@@ -490,7 +491,7 @@ function generateEmailHTML({
           <!-- Header Image -->
           <tr>
             <td>
-              <img src="https://images.unsplash.com/photo-1600334129128-685c5582fd35"
+              <img src="${BASE_URL}/homepage/${encodeURIComponent("Page d'accueil Nos massages.webp")}"
                    width="600"
                    alt="Mor Thai Spa"
                    style="display:block; width:100%; height:auto;">
@@ -576,9 +577,10 @@ function generateEmailHTML({
             <td align="center" style="padding:16px; background-color:#f0ede8; font-size:12px; color:#666;">
               <!-- Contact Information -->
               <div style="margin-bottom:12px; line-height:1.8;">
-                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Adresse' : 'Address'} :</strong> ${language === 'fr' ? 'N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (à l\'arrière Le Centre Américain).' : 'N° 52, 5th Floor, Le Noyer B Building, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (behind the American Center).'}</p>
-                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Téléphone' : 'Phone'} :</strong> +212 524 207 055</p>
-                <p style="margin:4px 0;"><strong>Email :</strong> contact@morthai-marrakech.com</p>
+                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Adresse' : 'Address'} :</strong> <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech')}" target="_blank" style="color:#6b7b66; text-decoration:underline;">${language === 'fr' ? 'N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (à l\'arrière Le Centre Américain).' : 'N° 52, 5th Floor, Le Noyer B Building, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (behind the American Center).'}</a></p>
+                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Téléphone' : 'Phone'} :</strong> <a href="tel:+212524207055" style="color:#6b7b66; text-decoration:underline;">+212 524 207 055</a></p>
+                <p style="margin:4px 0;"><strong>WhatsApp :</strong> <a href="https://wa.me/212610200040" target="_blank" style="color:#6b7b66; text-decoration:underline;">+212 610 200 040</a></p>
+                <p style="margin:4px 0;"><strong>Email :</strong> <a href="mailto:contact@morthai-marrakech.com" style="color:#6b7b66; text-decoration:underline;">contact@morthai-marrakech.com</a></p>
               </div>
               <!-- Social Media Icons -->
               <div style="margin-bottom:12px;">
