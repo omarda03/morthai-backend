@@ -179,7 +179,21 @@ async function generateRequestEmailHTML({
   }
   
   // Format duration text
-  const durationText = duration ? `${duration} minutes` : 'Non spécifiée';
+  let durationText = 'Non spécifiée';
+  if (duration) {
+    const minutes = parseInt(duration);
+    if (minutes === 60) {
+      durationText = language === 'fr' ? '1 heure' : '1 hour';
+    } else if (minutes === 90) {
+      durationText = language === 'fr' ? '1h30' : '1h30';
+    } else if (minutes === 120) {
+      durationText = language === 'fr' ? '2 heures' : '2 hours';
+    } else if (minutes === 75) {
+      durationText = language === 'fr' ? '1h15' : '1h15';
+    } else {
+      durationText = language === 'fr' ? `${minutes} minutes` : `${minutes} minutes`;
+    }
+  }
 
   // Payment method translation
   let paymentMethod = modepaiement || '';
@@ -244,20 +258,19 @@ async function generateRequestEmailHTML({
                 <strong>Cher/ère Monsieur/Madame ${nomclient || '{{Name}}'},</strong>
               </p>
               <p>
-                Nous vous remercions d'avoir choisi <strong>Mor Thai Spa</strong>.
-                <strong>Votre demande de réservation</strong> a bien été reçue et est actuellement
-                en cours de validation par notre équipe.
+                Nous vous remercions d'avoir choisi <strong>Mor Thai Spa</strong>. Votre demande de réservation a bien été reçue et est actuellement en cours de validation par notre équipe.
               </p>
               <p>
-                Notre réceptionniste vous contactera <strong>très prochainement</strong>,
-                par appel téléphonique, <strong>WhatsApp</strong> ou email.
+                Notre réceptionniste vous contactera très prochainement, par appel téléphonique, <strong>WhatsApp</strong> ou email.
               </p>
               <p>
                 Merci de vous assurer que votre <strong>téléphone reste joignable</strong>.
               </p>
               <p>
-                En cas de demande urgente, vous pouvez également nous contacter directement
-                par <strong>téléphone</strong> ou <strong>WhatsApp</strong>.
+                En cas de demande urgente, vous pouvez également nous contacter directement par <strong>téléphone</strong> ou <strong>WhatsApp</strong>.
+              </p>
+              <p style="margin-top:16px;">
+                Chaleureusement,<br>L'équipe Mor Thai Spa
               </p>
             </td>
           </tr>
@@ -277,10 +290,9 @@ async function generateRequestEmailHTML({
                 </tr>
                 <tr>
                   <td colspan="2" style="padding:0 16px 16px; font-size:14px; color:#333;">
-                    <p style="margin:12px 0;"><strong>Soin :</strong> ${serviceName}</p>
-                    <p style="margin:12px 0;"><strong>Durée :</strong> ${duration}</p>
+                    <p style="margin:12px 0;"><strong>Soin :</strong> ${serviceName}${durationText !== 'Non spécifiée' ? ` – ${durationText}` : ''}</p>
                     <p style="margin:12px 0;"><strong>Date & heure souhaitées :</strong> ${formattedReservationDate}${formattedReservationTime ? ` à ${formattedReservationTime}` : ''}</p>
-                    <p style="margin:12px 0;"><strong>Montant :</strong> ${prixtotal.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} MAD – ${paymentMethod}</p>
+                    <p style="margin:12px 0;"><strong>Montant :</strong> ${prixtotal.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} MAD${paymentMethod ? ` – ${paymentMethod}` : ''}</p>
                   </td>
                 </tr>
               </table>
@@ -383,10 +395,20 @@ function generateEmailHTML({
   const reservationRef = reference || `MOR-${createdDateObj.getTime().toString().substring(0, 10)}`;
 
   // Determine duration from reservation data
-  let duration = '75 minutes'; // Default
+  let duration = '1 heure'; // Default
   if (reservationData.duree) {
     const minutes = parseInt(reservationData.duree);
-    duration = `${minutes} minutes`;
+    if (minutes === 60) {
+      duration = language === 'fr' ? '1 heure' : '1 hour';
+    } else if (minutes === 90) {
+      duration = language === 'fr' ? '1h30' : '1h30';
+    } else if (minutes === 120) {
+      duration = language === 'fr' ? '2 heures' : '2 hours';
+    } else if (minutes === 75) {
+      duration = language === 'fr' ? '1h15' : '1h15';
+    } else {
+      duration = language === 'fr' ? `${minutes} minutes` : `${minutes} minutes`;
+    }
   }
 
   // Payment method translation
@@ -457,13 +479,8 @@ function generateEmailHTML({
   // Build services list HTML dynamically
   let servicesListHTML = '';
   
-  // Always show main service with calculated price
-  if (baseServicePrice > 0) {
-    const mainServiceTotal = baseServicePrice * nbrpersonne;
-    servicesListHTML += `<p style="margin:12px 0;"><strong>${language === 'fr' ? 'Soin' : 'Treatment'} :</strong> ${serviceName} x${nbrpersonne} - <strong>${mainServiceTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MAD</strong></p>`;
-  } else {
-    servicesListHTML += `<p style="margin:12px 0;"><strong>${language === 'fr' ? 'Soin' : 'Treatment'} :</strong> ${serviceName} x${nbrpersonne}</p>`;
-  }
+  // Always show main service (simplified format)
+  servicesListHTML += `<p style="margin:12px 0;"><strong>${language === 'fr' ? 'Soin' : 'Treatment'} :</strong> ${serviceName}</p>`;
   
   // Show additional services if any
   if (additionalServices.length > 0) {
@@ -530,7 +547,7 @@ function generateEmailHTML({
                      style="background-color:#f3f0eb; border-radius:10px;">
                 <tr>
                   <td style="padding:14px 16px; background-color:#e8e4dd; font-weight:bold; color:#6b7b66; border-radius:10px 10px 0 0;">
-                    ${language === 'fr' ? 'Détails de la réservation' : 'Reservation Details'}
+                    ${language === 'fr' ? 'Détails de votre réservation' : 'Reservation Details'}
                   </td>
                   <td align="right" style="padding:14px 16px; background-color:#e8e4dd; font-size:12px; color:#666; border-radius:10px 10px 0 0;">
                     ${language === 'fr' ? 'Référence' : 'Reference'} : ${reservationRef}
@@ -540,10 +557,9 @@ function generateEmailHTML({
                   <td colspan="2" style="padding:0 16px 16px; font-size:14px; color:#333;">
                     ${servicesListHTML}
                     ${duration ? `<p style="margin:12px 0;"><strong>${language === 'fr' ? 'Durée' : 'Duration'} :</strong> ${duration}</p>` : ''}
-                    <p style="margin:12px 0;"><strong>${language === 'fr' ? 'Nombre de personnes' : 'Number of people'} :</strong> x${nbrpersonne}</p>
-                    <p style="margin:12px 0;"><strong>${language === 'fr' ? 'Date & heure' : 'Date & time'} :</strong> ${formattedReservationDate}${formattedReservationTime ? ` à ${formattedReservationTime}` : ''}</p>
+                    <p style="margin:12px 0;"><strong>${language === 'fr' ? 'Nombre de personnes' : 'Number of people'} :</strong> ${nbrpersonne}</p>
                     ${paymentMethod ? `<p style="margin:12px 0;"><strong>${language === 'fr' ? 'Mode de paiement' : 'Payment method'} :</strong> ${paymentMethod}</p>` : ''}
-                    <p style="margin:12px 0;"><strong>${language === 'fr' ? 'Montant' : 'Amount'} :</strong> ${prixtotal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MAD</p>
+                    <p style="margin:12px 0;"><strong>${language === 'fr' ? 'Montant total' : 'Total amount'} :</strong> ${prixtotal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MAD</p>
                   </td>
                 </tr>
               </table>
@@ -688,6 +704,23 @@ export async function sendReservationEmail(reservation, emailType, customMessage
     ? (NomServiceFr || NomService || 'Service')
     : (NomServiceEn || NomService || 'Service');
 
+  // Determine duration from reservation data
+  let duration = '1 heure'; // Default
+  if (reservation.duree) {
+    const minutes = parseInt(reservation.duree);
+    if (minutes === 60) {
+      duration = language === 'fr' ? '1 heure' : '1 hour';
+    } else if (minutes === 90) {
+      duration = language === 'fr' ? '1h30' : '1h30';
+    } else if (minutes === 120) {
+      duration = language === 'fr' ? '2 heures' : '2 hours';
+    } else if (minutes === 75) {
+      duration = language === 'fr' ? '1h15' : '1h15';
+    } else {
+      duration = language === 'fr' ? `${minutes} minutes` : `${minutes} minutes`;
+    }
+  }
+
   let subject = '';
   let bannerText = '';
   let bannerColor = '#8B4513';
@@ -699,22 +732,28 @@ export async function sendReservationEmail(reservation, emailType, customMessage
       subject = language === 'fr' 
         ? 'Confirmation de votre réservation - Mor Thai Spa'
         : 'Reservation Confirmation - Mor Thai Spa';
-      bannerText = language === 'fr' ? 'RÉSERVATION CONFIRMÉE' : 'RESERVATION CONFIRMED';
+      bannerText = language === 'fr' ? 'Confirmation' : 'Confirmation';
       bannerColor = '#8B4513';
       messageContent = customMessage && customMessage.trim() 
         ? `<p style="margin-top:0;"><strong>Cher/ère Monsieur/Madame ${nomclient || '{{Name}}'},</strong></p>
            <p>${customMessage.replace(/\n/g, '<br>')}</p>`
         : (language === 'fr'
           ? `<p style="margin-top:0;"><strong>Cher/ère Monsieur/Madame ${nomclient || '{{Name}}'},</strong></p>
-             <p>Nous sommes ravis que vous ayez choisi <strong>Mor Thai Spa</strong>.</p>
-             <p>Nous vous informons que la date et l'heure de votre demande de réservation ont été <strong>confirmées</strong>.</p>
-             <p>Nous serons honorés de vous accueillir dans nos locaux pour votre séance de détente.</p>
-             <p>Si vous avez des exigences particulières ou des préférences spécifiques, n'hésitez pas à nous communiquer.</p>`
+             <p>Nous vous remercions d'avoir choisi <strong>Mor Thai Spa</strong>.</p>
+             <p>Nous avons le plaisir de vous confirmer votre rendez-vous pour</p>
+             <p><strong>Date et heure :</strong> ${formattedReservationDate} à ${formattedReservationTime || '{{heure}}'} ${formattedReservationTime ? '(modifiable)' : ''}</p>
+             <p>Si vous avez des préférences particulières ou des demandes spécifiques, n'hésitez pas à nous communiquer afin de personnaliser votre expérience.</p>
+             <p>Notre équipe sera honorée de vous accueillir pour vous offrir un moment de détente et de bien-être d'exception.</p>
+             <p style="margin-top:16px;">Nous vous remercions pour votre confiance et nous réjouissons de vous accueillir très prochainement.</p>
+             <p style="margin-top:16px;">Bien cordialement,<br>L'équipe Mor Thai Spa</p>`
           : `<p style="margin-top:0;"><strong>Dear Sir/Madam ${nomclient || '{{Name}}'},</strong></p>
-             <p>We are delighted that you have chosen <strong>Mor Thai Spa</strong>.</p>
-             <p>We inform you that the date and time of your reservation request have been <strong>confirmed</strong>.</p>
-             <p>We will be honored to welcome you to our premises for your relaxation session.</p>
-             <p>If you have any particular requirements or specific preferences, please do not hesitate to communicate them to us.</p>`);
+             <p>We thank you for choosing <strong>Mor Thai Spa</strong>.</p>
+             <p>We are pleased to confirm your appointment for</p>
+             <p><strong>Date and time:</strong> ${formattedReservationDate} at ${formattedReservationTime || '{{time}}'} ${formattedReservationTime ? '(modifiable)' : ''}</p>
+             <p>If you have any particular preferences or specific requests, please do not hesitate to contact us to personalize your experience.</p>
+             <p>Our team will be honored to welcome you to offer you an exceptional moment of relaxation and well-being.</p>
+             <p style="margin-top:16px;">We thank you for your trust and look forward to welcoming you very soon.</p>
+             <p style="margin-top:16px;">Best regards,<br>The Mor Thai Spa Team</p>`);
       break;
 
     case 'reminder':
@@ -775,18 +814,34 @@ export async function sendReservationEmail(reservation, emailType, customMessage
       subject = language === 'fr'
         ? 'Non-disponibilité de créneaux - Mor Thai Spa'
         : 'Slot Unavailability - Mor Thai Spa';
-      bannerText = language === 'fr' ? 'CRÉNEAU NON DISPONIBLE' : 'SLOT UNAVAILABLE';
+      bannerText = language === 'fr' ? 'Non disponibilité' : 'Unavailability';
       bannerColor = '#ff9800';
       messageContent = customMessage && customMessage.trim()
         ? `<p style="margin-top:0;"><strong>Cher/ère Monsieur/Madame ${nomclient || '{{Name}}'},</strong></p>
            <p>${customMessage.replace(/\n/g, '<br>')}</p>`
         : (language === 'fr'
           ? `<p style="margin-top:0;"><strong>Cher/ère Monsieur/Madame ${nomclient || '{{Name}}'},</strong></p>
-             <p>Nous sommes désolés de vous informer que le créneau demandé pour votre réservation (<strong>${formattedReservationDate} à ${formattedReservationTime}</strong>) n'est malheureusement pas disponible.</p>
-             <p>Nous vous proposons de choisir une autre date et heure. N'hésitez pas à nous contacter pour trouver une alternative qui vous convient.</p>`
+             <p>Nous vous remercions d'avoir choisi <strong>Mor Thai Spa</strong> pour votre moment de relaxation.</p>
+             <p>Nous regrettons de vous informer que les créneaux demandés ne sont plus disponibles.</p>
+             <p>Toutefois, nous avons le plaisir de vous proposer la disponibilité suivante :</p>
+             <p style="margin:12px 0; padding:12px; background-color:#f3f0eb; border-left:4px solid #6b7b66;">
+               <strong>${formattedReservationDate} à ${formattedReservationTime || '{{heure}}'} ${formattedReservationTime ? '(modifiable)' : ''}</strong>
+             </p>
+             <p style="margin:12px 0;"><strong>Soin :</strong> ${serviceName}${duration ? ` – ${duration}` : ''}</p>
+             <p>Nous vous remercions de bien vouloir nous confirmer si cet horaire vous convient, afin que nous puissions finaliser votre réservation.</p>
+             <p>Nous vous remercions pour votre compréhension et restons à votre entière disposition.</p>
+             <p style="margin-top:16px;">Cordialement,<br>L'équipe Mor Thai Spa</p>`
           : `<p style="margin-top:0;"><strong>Dear Sir/Madam ${nomclient || '{{Name}}'},</strong></p>
-             <p>We're sorry to inform you that the requested time slot for your reservation (<strong>${formattedReservationDate} at ${formattedReservationTime}</strong>) is unfortunately not available.</p>
-             <p>We suggest choosing another date and time. Please don't hesitate to contact us to find an alternative that suits you.</p>`);
+             <p>We thank you for choosing <strong>Mor Thai Spa</strong> for your moment of relaxation.</p>
+             <p>We regret to inform you that the requested time slots are no longer available.</p>
+             <p>However, we are pleased to offer you the following availability:</p>
+             <p style="margin:12px 0; padding:12px; background-color:#f3f0eb; border-left:4px solid #6b7b66;">
+               <strong>${formattedReservationDate} at ${formattedReservationTime || '{{time}}'} ${formattedReservationTime ? '(modifiable)' : ''}</strong>
+             </p>
+             <p style="margin:12px 0;"><strong>Treatment:</strong> ${serviceName}${duration ? ` – ${duration}` : ''}</p>
+             <p>We thank you for confirming if this schedule suits you, so that we can finalize your reservation.</p>
+             <p>We thank you for your understanding and remain at your complete disposal.</p>
+             <p style="margin-top:16px;">Best regards,<br>The Mor Thai Spa Team</p>`);
       break;
 
     case 'refund_request':
@@ -939,6 +994,7 @@ export async function sendReservationEmail(reservation, emailType, customMessage
       nbrpersonne,
       modepaiement,
       created_at,
+      duree: reservation.duree || null,
       note: reservation.note || null
     },
     language,
@@ -1007,6 +1063,23 @@ export async function generateEmailPreview(reservation, emailType, customMessage
     ? (NomServiceFr || NomService || 'Service')
     : (NomServiceEn || NomService || 'Service');
 
+  // Determine duration from reservation data
+  let duration = '1 heure'; // Default
+  if (reservation.duree) {
+    const minutes = parseInt(reservation.duree);
+    if (minutes === 60) {
+      duration = language === 'fr' ? '1 heure' : '1 hour';
+    } else if (minutes === 90) {
+      duration = language === 'fr' ? '1h30' : '1h30';
+    } else if (minutes === 120) {
+      duration = language === 'fr' ? '2 heures' : '2 hours';
+    } else if (minutes === 75) {
+      duration = language === 'fr' ? '1h15' : '1h15';
+    } else {
+      duration = language === 'fr' ? `${minutes} minutes` : `${minutes} minutes`;
+    }
+  }
+
   let bannerText = '';
   let bannerColor = '#8B4513';
   let messageContent = '';
@@ -1034,7 +1107,7 @@ export async function generateEmailPreview(reservation, emailType, customMessage
   // Define email content based on type
   switch (emailType) {
     case 'confirm':
-      bannerText = language === 'fr' ? 'RÉSERVATION CONFIRMÉE' : 'RESERVATION CONFIRMED';
+      bannerText = language === 'fr' ? 'Confirmation' : 'Confirmation';
       bannerColor = '#8B4513';
       messageContent = customMessage && customMessage.trim() 
         ? (isHtmlContent 
@@ -1043,15 +1116,21 @@ export async function generateEmailPreview(reservation, emailType, customMessage
              <p>${escapeHtml(customMessage).replace(/\n/g, '<br>')}</p>`)
         : (language === 'fr'
           ? `<p style="margin-top:0;"><strong>Cher/ère Monsieur/Madame ${nomclient || '{{Name}}'},</strong></p>
-             <p>Nous sommes ravis que vous ayez choisi <strong>Mor Thai Spa</strong>.</p>
-             <p>Nous vous informons que la date et l'heure de votre demande de réservation ont été <strong>confirmées</strong>.</p>
-             <p>Nous serons honorés de vous accueillir dans nos locaux pour votre séance de détente.</p>
-             <p>Si vous avez des exigences particulières ou des préférences spécifiques, n'hésitez pas à nous communiquer.</p>`
+             <p>Nous vous remercions d'avoir choisi <strong>Mor Thai Spa</strong>.</p>
+             <p>Nous avons le plaisir de vous confirmer votre rendez-vous pour</p>
+             <p><strong>Date et heure :</strong> ${formattedReservationDate} à ${formattedReservationTime || '{{heure}}'} ${formattedReservationTime ? '(modifiable)' : ''}</p>
+             <p>Si vous avez des préférences particulières ou des demandes spécifiques, n'hésitez pas à nous communiquer afin de personnaliser votre expérience.</p>
+             <p>Notre équipe sera honorée de vous accueillir pour vous offrir un moment de détente et de bien-être d'exception.</p>
+             <p style="margin-top:16px;">Nous vous remercions pour votre confiance et nous réjouissons de vous accueillir très prochainement.</p>
+             <p style="margin-top:16px;">Bien cordialement,<br>L'équipe Mor Thai Spa</p>`
           : `<p style="margin-top:0;"><strong>Dear Sir/Madam ${nomclient || '{{Name}}'},</strong></p>
-             <p>We are delighted that you have chosen <strong>Mor Thai Spa</strong>.</p>
-             <p>We inform you that the date and time of your reservation request have been <strong>confirmed</strong>.</p>
-             <p>We will be honored to welcome you to our premises for your relaxation session.</p>
-             <p>If you have any particular requirements or specific preferences, please do not hesitate to communicate them to us.</p>`);
+             <p>We thank you for choosing <strong>Mor Thai Spa</strong>.</p>
+             <p>We are pleased to confirm your appointment for</p>
+             <p><strong>Date and time:</strong> ${formattedReservationDate} at ${formattedReservationTime || '{{time}}'} ${formattedReservationTime ? '(modifiable)' : ''}</p>
+             <p>If you have any particular preferences or specific requests, please do not hesitate to contact us to personalize your experience.</p>
+             <p>Our team will be honored to welcome you to offer you an exceptional moment of relaxation and well-being.</p>
+             <p style="margin-top:16px;">We thank you for your trust and look forward to welcoming you very soon.</p>
+             <p style="margin-top:16px;">Best regards,<br>The Mor Thai Spa Team</p>`);
       break;
 
     case 'reminder':
@@ -1106,7 +1185,7 @@ export async function generateEmailPreview(reservation, emailType, customMessage
       break;
 
     case 'unavailability':
-      bannerText = language === 'fr' ? 'CRÉNEAU NON DISPONIBLE' : 'SLOT UNAVAILABLE';
+      bannerText = language === 'fr' ? 'Non disponibilité' : 'Unavailability';
       bannerColor = '#ff9800';
       messageContent = customMessage && customMessage.trim()
         ? (isHtmlContent 
@@ -1115,11 +1194,27 @@ export async function generateEmailPreview(reservation, emailType, customMessage
              <p>${escapeHtml(customMessage).replace(/\n/g, '<br>')}</p>`)
         : (language === 'fr'
           ? `<p style="margin-top:0;"><strong>Cher/ère Monsieur/Madame ${nomclient || '{{Name}}'},</strong></p>
-             <p>Nous sommes désolés de vous informer que le créneau demandé pour votre réservation (<strong>${formattedReservationDate} à ${formattedReservationTime}</strong>) n'est malheureusement pas disponible.</p>
-             <p>Nous vous proposons de choisir une autre date et heure. N'hésitez pas à nous contacter pour trouver une alternative qui vous convient.</p>`
+             <p>Nous vous remercions d'avoir choisi <strong>Mor Thai Spa</strong> pour votre moment de relaxation.</p>
+             <p>Nous regrettons de vous informer que les créneaux demandés ne sont plus disponibles.</p>
+             <p>Toutefois, nous avons le plaisir de vous proposer la disponibilité suivante :</p>
+             <p style="margin:12px 0; padding:12px; background-color:#f3f0eb; border-left:4px solid #6b7b66;">
+               <strong>${formattedReservationDate} à ${formattedReservationTime || '{{heure}}'} ${formattedReservationTime ? '(modifiable)' : ''}</strong>
+             </p>
+             <p style="margin:12px 0;"><strong>Soin :</strong> ${serviceName}${duration ? ` – ${duration}` : ''}</p>
+             <p>Nous vous remercions de bien vouloir nous confirmer si cet horaire vous convient, afin que nous puissions finaliser votre réservation.</p>
+             <p>Nous vous remercions pour votre compréhension et restons à votre entière disposition.</p>
+             <p style="margin-top:16px;">Cordialement,<br>L'équipe Mor Thai Spa</p>`
           : `<p style="margin-top:0;"><strong>Dear Sir/Madam ${nomclient || '{{Name}}'},</strong></p>
-             <p>We're sorry to inform you that the requested time slot for your reservation (<strong>${formattedReservationDate} at ${formattedReservationTime}</strong>) is unfortunately not available.</p>
-             <p>We suggest choosing another date and time. Please don't hesitate to contact us to find an alternative that suits you.</p>`);
+             <p>We thank you for choosing <strong>Mor Thai Spa</strong> for your moment of relaxation.</p>
+             <p>We regret to inform you that the requested time slots are no longer available.</p>
+             <p>However, we are pleased to offer you the following availability:</p>
+             <p style="margin:12px 0; padding:12px; background-color:#f3f0eb; border-left:4px solid #6b7b66;">
+               <strong>${formattedReservationDate} at ${formattedReservationTime || '{{time}}'} ${formattedReservationTime ? '(modifiable)' : ''}</strong>
+             </p>
+             <p style="margin:12px 0;"><strong>Treatment:</strong> ${serviceName}${duration ? ` – ${duration}` : ''}</p>
+             <p>We thank you for confirming if this schedule suits you, so that we can finalize your reservation.</p>
+             <p>We thank you for your understanding and remain at your complete disposal.</p>
+             <p style="margin-top:16px;">Best regards,<br>The Mor Thai Spa Team</p>`);
       break;
 
     case 'refund_request':
@@ -1245,6 +1340,7 @@ export async function generateEmailPreview(reservation, emailType, customMessage
       nbrpersonne,
       modepaiement,
       created_at,
+      duree: reservation.duree || null,
       note: reservation.note || null
     },
     language,

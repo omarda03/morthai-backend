@@ -64,16 +64,16 @@ export const getReservationById = async (req, res) => {
     // Only track if we have a valid admin email and is_viewed column exists
     if (adminEmail && reservation.hasOwnProperty('is_viewed')) {
       try {
-        if (!reservation.is_viewed) {
-          await Reservation.markAsViewed(id, adminEmail);
-          reservation.is_viewed = true;
-          reservation.last_viewed_by = adminEmail;
-          reservation.last_viewed_at = new Date();
-        } else if (reservation.last_viewed_by !== adminEmail) {
-          // Update viewed by current admin even if already viewed by someone else
-          await Reservation.markAsViewed(id, adminEmail);
-          reservation.last_viewed_by = adminEmail;
-          reservation.last_viewed_at = new Date();
+      if (!reservation.is_viewed) {
+        await Reservation.markAsViewed(id, adminEmail);
+        reservation.is_viewed = true;
+        reservation.last_viewed_by = adminEmail;
+        reservation.last_viewed_at = new Date();
+      } else if (reservation.last_viewed_by !== adminEmail) {
+        // Update viewed by current admin even if already viewed by someone else
+        await Reservation.markAsViewed(id, adminEmail);
+        reservation.last_viewed_by = adminEmail;
+        reservation.last_viewed_at = new Date();
         }
       } catch (markError) {
         // If markAsViewed fails (column doesn't exist), just continue without tracking
@@ -81,7 +81,7 @@ export const getReservationById = async (req, res) => {
       }
     } else {
       if (!adminEmail) {
-        console.warn('⚠️ No admin email found in JWT token - not tracking view');
+      console.warn('⚠️ No admin email found in JWT token - not tracking view');
       }
     }
     

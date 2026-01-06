@@ -10,18 +10,18 @@ export class Offre {
   // Get all offers
   static async getAll() {
     try {
-      const result = await pool.query(`
-        SELECT o.*, 
-               cc.theme as "CarteTheme", cc.prix as "CartePrix",
+    const result = await pool.query(`
+      SELECT o.*, 
+             cc.theme as "CarteTheme", cc.prix as "CartePrix",
                s.nomservice as "NomService", s.nomservice_fr as "NomServiceFr", s.nomservice_en as "NomServiceEn",
                so.prix_mad as "ServicePrix"
-        FROM offre o 
-        LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
-        LEFT JOIN service s ON o.service = s.service_uuid 
+      FROM offre o 
+      LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
+      LEFT JOIN service s ON o.service = s.service_uuid 
         LEFT JOIN service_offers so ON s.service_uuid = so.service_uuid AND so.durée = o.durée
-        ORDER BY o.created_at DESC
-      `);
-      return result.rows;
+      ORDER BY o.created_at DESC
+    `);
+    return result.rows;
     } catch (error) {
       console.error('Error in Offre.getAll():', error);
       throw error;
@@ -31,18 +31,18 @@ export class Offre {
   // Get offer by ID
   static async getById(offreUuid) {
     try {
-      const result = await pool.query(`
-        SELECT o.*, 
-               cc.theme as "CarteTheme", cc.prix as "CartePrix",
+    const result = await pool.query(`
+      SELECT o.*, 
+             cc.theme as "CarteTheme", cc.prix as "CartePrix",
                s.nomservice as "NomService", s.nomservice_fr as "NomServiceFr", s.nomservice_en as "NomServiceEn",
                so.prix_mad as "ServicePrix"
-        FROM offre o 
-        LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
-        LEFT JOIN service s ON o.service = s.service_uuid 
+      FROM offre o 
+      LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
+      LEFT JOIN service s ON o.service = s.service_uuid 
         LEFT JOIN service_offers so ON s.service_uuid = so.service_uuid AND so.durée = o.durée
-        WHERE o.offre_uuid = $1
-      `, [offreUuid]);
-      return result.rows[0];
+      WHERE o.offre_uuid = $1
+    `, [offreUuid]);
+    return result.rows[0];
     } catch (error) {
       console.error('Error in Offre.getById():', error);
       throw error;
@@ -52,18 +52,18 @@ export class Offre {
   // Get offer by unique code
   static async getByCode(codeUnique) {
     try {
-      const result = await pool.query(`
-        SELECT o.*, 
-               cc.theme as "CarteTheme", cc.prix as "CartePrix",
+    const result = await pool.query(`
+      SELECT o.*, 
+             cc.theme as "CarteTheme", cc.prix as "CartePrix",
                s.nomservice as "NomService", s.nomservice_fr as "NomServiceFr", s.nomservice_en as "NomServiceEn",
                so.prix_mad as "ServicePrix"
-        FROM offre o 
-        LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
-        LEFT JOIN service s ON o.service = s.service_uuid 
+      FROM offre o 
+      LEFT JOIN cartecadeaux cc ON o.cartecadeaux = cc.carteid 
+      LEFT JOIN service s ON o.service = s.service_uuid 
         LEFT JOIN service_offers so ON s.service_uuid = so.service_uuid AND so.durée = o.durée
-        WHERE o.codeunique = $1
-      `, [codeUnique]);
-      return result.rows[0];
+      WHERE o.codeunique = $1
+    `, [codeUnique]);
+    return result.rows[0];
     } catch (error) {
       console.error('Error in Offre.getByCode():', error);
       throw error;

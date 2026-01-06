@@ -215,8 +215,8 @@ export class Reservation {
     }
     
     try {
-      const result = await pool.query(query, [identifier]);
-      return result.rows[0];
+    const result = await pool.query(query, [identifier]);
+    return result.rows[0];
     } catch (error) {
       // If is_viewed column doesn't exist, try without it
       if (error.message && error.message.includes('is_viewed')) {
@@ -483,11 +483,11 @@ export class Reservation {
         return null;
       }
       
-      const result = await pool.query(
-        'UPDATE reservation SET is_viewed = TRUE, last_viewed_by = $2, last_viewed_at = CURRENT_TIMESTAMP WHERE reservation_uuid = $1 RETURNING *',
-        [reservationUuid, viewedBy]
-      );
-      return result.rows[0];
+    const result = await pool.query(
+      'UPDATE reservation SET is_viewed = TRUE, last_viewed_by = $2, last_viewed_at = CURRENT_TIMESTAMP WHERE reservation_uuid = $1 RETURNING *',
+      [reservationUuid, viewedBy]
+    );
+    return result.rows[0];
     } catch (error) {
       // If column doesn't exist or other error, log and return null
       console.warn('⚠️ Error marking reservation as viewed:', error.message);
@@ -510,7 +510,7 @@ export class Reservation {
         return [];
       }
       
-      const result = await pool.query(
+    const result = await pool.query(
         `SELECT 
           r.reservation_uuid,
           r.nomclient,
@@ -527,29 +527,29 @@ export class Reservation {
           r.created_at,
           r.updated_at,
           r.reference,
-          COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
           r.is_viewed,
           r.last_viewed_by,
           r.last_viewed_at,
           r.last_modified_by,
           r.last_modified_at,
-          s.nomservice_fr as "NomServiceFr",
-          s.nomservice as "NomService",
-          u.nom as "viewed_by_name"
-        FROM reservation r 
-        LEFT JOIN service s ON r.service_uuid = s.service_uuid 
-        INNER JOIN users u ON r.last_viewed_by = u.email
-        WHERE r.is_viewed = TRUE 
-          AND r.last_viewed_by IS NOT NULL
-          AND r.last_viewed_by != $1
-          AND r.last_viewed_by != 'unknown'
-          AND u.nom IS NOT NULL
-          AND (r.last_modified_at IS NULL OR r.last_viewed_at > r.last_modified_at)
-        ORDER BY r.last_viewed_at DESC
-        LIMIT 10`,
-        [currentAdminEmail]
-      );
-      return result.rows;
+        s.nomservice_fr as "NomServiceFr",
+        s.nomservice as "NomService",
+        u.nom as "viewed_by_name"
+      FROM reservation r 
+      LEFT JOIN service s ON r.service_uuid = s.service_uuid 
+      INNER JOIN users u ON r.last_viewed_by = u.email
+      WHERE r.is_viewed = TRUE 
+        AND r.last_viewed_by IS NOT NULL
+        AND r.last_viewed_by != $1
+        AND r.last_viewed_by != 'unknown'
+        AND u.nom IS NOT NULL
+        AND (r.last_modified_at IS NULL OR r.last_viewed_at > r.last_modified_at)
+      ORDER BY r.last_viewed_at DESC
+      LIMIT 10`,
+      [currentAdminEmail]
+    );
+    return result.rows;
     } catch (error) {
       console.warn('⚠️ Error getting viewed but not modified reservations:', error.message);
       return [];
@@ -571,7 +571,7 @@ export class Reservation {
         return [];
       }
       
-      const result = await pool.query(
+    const result = await pool.query(
         `SELECT 
           r.reservation_uuid,
           r.nomclient,
@@ -588,24 +588,24 @@ export class Reservation {
           r.created_at,
           r.updated_at,
           r.reference,
-          COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
+        COALESCE(r.reference, 'MOR-' || SUBSTRING(r.reservation_uuid::text, 1, 8)) as reference,
           r.is_viewed,
           r.last_viewed_by,
           r.last_viewed_at,
           r.last_modified_by,
           r.last_modified_at,
-          s.nomservice_fr as "NomServiceFr",
-          s.nomservice as "NomService"
-        FROM reservation r 
-        LEFT JOIN service s ON r.service_uuid = s.service_uuid 
-        WHERE r.is_viewed = TRUE 
-          AND r.last_viewed_by = $1
-          AND (r.last_modified_at IS NULL OR r.last_viewed_at > r.last_modified_at)
-          AND r.last_modified_by IS NULL
-        ORDER BY r.last_viewed_at DESC`,
-        [adminEmail]
-      );
-      return result.rows;
+        s.nomservice_fr as "NomServiceFr",
+        s.nomservice as "NomService"
+      FROM reservation r 
+      LEFT JOIN service s ON r.service_uuid = s.service_uuid 
+      WHERE r.is_viewed = TRUE 
+        AND r.last_viewed_by = $1
+        AND (r.last_modified_at IS NULL OR r.last_viewed_at > r.last_modified_at)
+        AND r.last_modified_by IS NULL
+      ORDER BY r.last_viewed_at DESC`,
+      [adminEmail]
+    );
+    return result.rows;
     } catch (error) {
       console.warn('⚠️ Error getting current admin viewed but not modified reservations:', error.message);
       return [];
