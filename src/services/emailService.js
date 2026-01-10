@@ -1579,3 +1579,260 @@ Merci de procéder à la vérification des disponibilités et de contacter le cl
   }
 }
 
+/**
+ * Generate HTML email for gift card offer notification
+ * @param {Object} offer - Offer object with all details
+ * @param {string} language - Language (fr or en)
+ * @returns {string} HTML content
+ */
+function generateOfferGiftEmailHTML(offer, language = 'fr') {
+  const {
+    nombeneficiaire,
+    nomenvoyeur,
+    NomServiceFr,
+    NomServiceEn,
+    NomService,
+    durée,
+    codeunique,
+    created_at
+  } = offer;
+
+  const serviceName = language === 'fr'
+    ? (NomServiceFr || NomService || 'Service')
+    : (NomServiceEn || NomService || 'Service');
+
+  // Format duration
+  let durationText = '1 heure';
+  if (durée) {
+    const minutes = parseInt(durée);
+    if (minutes === 60) {
+      durationText = language === 'fr' ? '1 heure' : '1 hour';
+    } else if (minutes === 90) {
+      durationText = '1h30';
+    } else if (minutes === 120) {
+      durationText = language === 'fr' ? '2 heures' : '2 hours';
+    } else if (minutes === 75) {
+      durationText = '1h15';
+    } else {
+      durationText = language === 'fr' ? `${minutes} minutes` : `${minutes} minutes`;
+    }
+  }
+
+  // Format validity date (1 year from creation)
+  const validityDate = new Date(created_at || Date.now());
+  validityDate.setFullYear(validityDate.getFullYear() + 1);
+  const formattedValidityDate = validityDate.toLocaleDateString(
+    language === 'fr' ? 'fr-FR' : 'en-US',
+    { day: '2-digit', month: '2-digit', year: 'numeric' }
+  );
+
+  // Build gift card URL
+  const giftCardUrl = `${BASE_URL}/gift-card?code=${encodeURIComponent(codeunique)}`;
+
+  const subject = language === 'fr'
+    ? 'Un cadeau vous attend chez Mor Thai Spa!'
+    : 'A gift awaits you at Mor Thai Spa!';
+
+  const greeting = language === 'fr'
+    ? `Cher/ère ${nombeneficiaire || 'client(e)'},`
+    : `Dear ${nombeneficiaire || 'client'},`;
+
+  const messageText = language === 'fr'
+    ? `<p style="margin-top:0;">${greeting}</p>
+       <p>Nous avons le plaisir de vous informer que <strong>${nomenvoyeur || 'quelqu\'un'}</strong> vous a offert un cadeau spécial chez <strong>Mor Thai Spa</strong> !</p>
+       <p>Vous avez reçu une carte cadeau pour profiter d'un moment de détente et de bien-être.</p>
+       <p><strong>Service offert :</strong> ${serviceName}${durationText ? ` – ${durationText}` : ''}</p>
+       <p><strong>Validité :</strong> Valable 1 an à partir du ${formattedValidityDate}</p>
+       <p style="margin-top:24px;">Cliquez sur le bouton ci-dessous pour voir votre carte cadeau :</p>`
+    : `<p style="margin-top:0;">${greeting}</p>
+       <p>We are pleased to inform you that <strong>${nomenvoyeur || 'someone'}</strong> has offered you a special gift at <strong>Mor Thai Spa</strong>!</p>
+       <p>You have received a gift card to enjoy a moment of relaxation and well-being.</p>
+       <p><strong>Service offered:</strong> ${serviceName}${durationText ? ` – ${durationText}` : ''}</p>
+       <p><strong>Validity:</strong> Valid for 1 year from ${formattedValidityDate}</p>
+       <p style="margin-top:24px;">Click the button below to view your gift card:</p>`;
+
+  const buttonText = language === 'fr' ? 'Voir mon cadeau' : 'View my gift';
+
+  return `
+<!DOCTYPE html>
+<html lang="${language}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin:0; padding:0; font-family:Arial, sans-serif; background-color:#f5f5f5;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5; padding:20px 0;">
+    <tr>
+      <td align="center">
+        <!-- Container -->
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+          
+          <!-- Header Image -->
+          <tr>
+            <td align="center" style="padding:0;">
+              <img src="${BASE_URL}/homepage/${encodeURIComponent("Page d'accueil Nos massages.webp")}" alt="Mor Thai Spa" style="width:100%; max-width:600px; height:auto; display:block; border:0;">
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding:24px 40px; font-size:14px; color:#333; line-height:1.6;">
+              ${messageText}
+              
+              <!-- Button -->
+              <div style="margin:32px 0; text-align:center;">
+                <a href="${giftCardUrl}" style="display:inline-block; padding:14px 32px; background-color:#6b7b66; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:bold; font-size:16px;">
+                  ${buttonText}
+                </a>
+              </div>
+
+              <p style="margin-top:24px;">
+                ${language === 'fr'
+                  ? 'Nous vous remercions pour votre confiance et nous réjouissons de vous accueillir très prochainement.'
+                  : 'We thank you for your trust and look forward to welcoming you very soon.'}
+              </p>
+              <p style="margin-top:16px;">
+                ${language === 'fr' ? 'Bien cordialement,<br>L\'équipe Mor Thai Spa' : 'Best regards,<br>The Mor Thai Spa Team'}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:16px; background-color:#f0ede8; font-size:12px; color:#666;">
+              <!-- Contact Information -->
+              <div style="margin-bottom:12px; line-height:1.8;">
+                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Adresse' : 'Address'}:</strong> <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech')}" target="_blank" style="color:#6b7b66; text-decoration:underline;">N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (à l'arrière Le Centre Américain).</a></p>
+                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Téléphone' : 'Phone'}:</strong> <a href="tel:+212524207055" style="color:#6b7b66; text-decoration:underline;">+212 524 207 055</a></p>
+                <p style="margin:4px 0;"><strong>WhatsApp:</strong> <a href="https://wa.me/212610200040" target="_blank" style="color:#6b7b66; text-decoration:underline;">+212 610 200 040</a></p>
+                <p style="margin:4px 0;"><strong>Email:</strong> <a href="mailto:contact@morthai-marrakech.com" style="color:#6b7b66; text-decoration:underline;">contact@morthai-marrakech.com</a></p>
+              </div>
+              <!-- Social Media Icons -->
+              <div style="margin-bottom:12px;">
+                <a href="https://www.facebook.com/massagethailandaismarrakech.ma/" target="_blank" style="display:inline-block; margin:0 8px; text-decoration:none;">
+                  <img src="https://cdn-icons-png.flaticon.com/512/2175/2175193.png" alt="Facebook" style="width:20px; height:20px; display:block; border:0;">
+                </a>
+                <a href="https://www.instagram.com/morthai_spathailandais/" target="_blank" style="display:inline-block; margin:0 8px; text-decoration:none;">
+                  <img src="https://pixsector.com/cache/200e7bcc/av16efeffeed4418c90c1.png" alt="Instagram" style="width:20px; height:20px; display:block; border:0;">
+                </a>
+              </div>
+              © 2025 Mor Thai. All rights reserved.
+            </td>
+          </tr>
+        </table>
+        <!-- End container -->
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
+
+/**
+ * Send gift card email to recipient after successful payment
+ * @param {Object} offer - Offer object with all details
+ * @param {string} language - Language (fr or en)
+ * @returns {Promise<Object>} Result object with success status
+ */
+export async function sendOfferGiftEmail(offer, language = 'fr') {
+  if (!offer || !offer.emailbeneficiaire) {
+    return { success: false, error: 'Offer data and recipient email are required' };
+  }
+
+  const subject = language === 'fr'
+    ? 'Un cadeau vous attend chez Mor Thai Spa!'
+    : 'A gift awaits you at Mor Thai Spa!';
+
+  // Generate HTML content
+  const htmlContent = generateOfferGiftEmailHTML(offer, language);
+
+  // Generate plain text version
+  const {
+    nombeneficiaire,
+    nomenvoyeur,
+    NomServiceFr,
+    NomServiceEn,
+    NomService,
+    durée,
+    codeunique,
+    created_at
+  } = offer;
+
+  const serviceName = language === 'fr'
+    ? (NomServiceFr || NomService || 'Service')
+    : (NomServiceEn || NomService || 'Service');
+
+  // Format duration
+  let durationText = '1 heure';
+  if (durée) {
+    const minutes = parseInt(durée);
+    if (minutes === 60) {
+      durationText = language === 'fr' ? '1 heure' : '1 hour';
+    } else if (minutes === 90) {
+      durationText = '1h30';
+    } else if (minutes === 120) {
+      durationText = language === 'fr' ? '2 heures' : '2 hours';
+    } else {
+      durationText = language === 'fr' ? `${minutes} minutes` : `${minutes} minutes`;
+    }
+  }
+
+  // Format validity date
+  const validityDate = new Date(created_at || Date.now());
+  validityDate.setFullYear(validityDate.getFullYear() + 1);
+  const formattedValidityDate = validityDate.toLocaleDateString(
+    language === 'fr' ? 'fr-FR' : 'en-US',
+    { day: '2-digit', month: '2-digit', year: 'numeric' }
+  );
+
+  const giftCardUrl = `${BASE_URL}/gift-card?code=${encodeURIComponent(codeunique)}`;
+
+  const textContent = language === 'fr'
+    ? `Cher/ère ${nombeneficiaire || 'client(e)'},
+
+Nous avons le plaisir de vous informer que ${nomenvoyeur || 'quelqu\'un'} vous a offert un cadeau spécial chez Mor Thai Spa !
+
+Vous avez reçu une carte cadeau pour profiter d'un moment de détente et de bien-être.
+
+Service offert : ${serviceName}${durationText ? ` – ${durationText}` : ''}
+Validité : Valable 1 an à partir du ${formattedValidityDate}
+
+Cliquez sur le lien suivant pour voir votre carte cadeau :
+${giftCardUrl}
+
+Nous vous remercions pour votre confiance et nous réjouissons de vous accueillir très prochainement.
+
+Bien cordialement,
+L'équipe Mor Thai Spa`
+    : `Dear ${nombeneficiaire || 'client'},
+
+We are pleased to inform you that ${nomenvoyeur || 'someone'} has offered you a special gift at Mor Thai Spa!
+
+You have received a gift card to enjoy a moment of relaxation and well-being.
+
+Service offered: ${serviceName}${durationText ? ` – ${durationText}` : ''}
+Validity: Valid for 1 year from ${formattedValidityDate}
+
+Click the following link to view your gift card:
+${giftCardUrl}
+
+We thank you for your trust and look forward to welcoming you very soon.
+
+Best regards,
+The Mor Thai Spa Team`;
+
+  try {
+    const result = await sendEmail(offer.emailbeneficiaire, subject, textContent, htmlContent);
+    return result;
+  } catch (error) {
+    console.error('Error sending offer gift email:', error);
+    return {
+      success: false,
+      error: error.message,
+      errorDetails: error
+    };
+  }
+}
+
