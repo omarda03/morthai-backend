@@ -1,85 +1,7 @@
 import { createPaymentRequest, generatePaymentForm, verifyHash, handlePaymentData } from '../utils/paymentHelper.js';
 import { Reservation } from '../models/Reservation.js';
 import { Offre } from '../models/Offre.js';
-import { sendOfferGiftEmail } from '../services/emailService.js';
-
-/**
- * Get payment URLs based on environment
- * @param {Object} req - Express request object
- * @returns {Object} Payment URLs configuration
- */
-function getPaymentUrls(req) {
-  // Determine base URL (frontend) - where users will be redirected after payment
-  let baseUrl = process.env.BASE_URL;
-  if (!baseUrl) {
-    // Auto-detect from Vercel environment or request headers
-    if (process.env.VERCEL_URL) {
-      // Vercel provides VERCEL_URL automatically in production
-      baseUrl = `https://${process.env.VERCEL_URL}`;
-    } else if (process.env.NEXT_PUBLIC_VERCEL_URL) {
-      // Alternative Vercel environment variable
-      baseUrl = `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`;
-    } else {
-      // Fallback: detect from request headers (works for most hosting platforms)
-      const protocol = req.protocol || (process.env.NODE_ENV === 'production' ? 'https' : 'http');
-      const host = req.get('x-forwarded-host') || req.get('host') || 'localhost:3000';
-      // Remove port if it's standard port (80/443)
-      const cleanHost = host.replace(/:80$/, '').replace(/:443$/, '');
-      baseUrl = `${protocol}://${cleanHost}`;
-    }
-  }
-  
-  // Remove trailing slash if present
-  baseUrl = baseUrl.replace(/\/$/, '');
-  
-  // Backend URL - must be publicly accessible for CMI server-to-server callbacks
-  let backendUrl = process.env.BACKEND_URL;
-  if (!backendUrl) {
-    if (process.env.NODE_ENV === 'production') {
-      // In production, backend URL must be explicitly configured
-      // CMI needs a publicly accessible URL for server-to-server POST callbacks
-      // Note: Backend cannot be on Vercel as it doesn't support persistent callbacks
-      console.error('⚠️ BACKEND_URL not configured for production!');
-      throw new Error(
-        'BACKEND_URL environment variable is required in production. ' +
-        'Please set it to your publicly accessible backend URL. ' +
-        'Example: https://your-backend.railway.app or https://your-backend.render.com. ' +
-        'Note: Backend must be hosted on a platform that supports server-to-server callbacks (Railway, Render, Heroku, etc.), NOT on Vercel.'
-      );
-    } else {
-      // Development fallback
-      backendUrl = 'http://localhost:3001';
-    }
-  }
-  
-  // Remove trailing slash if present
-  backendUrl = backendUrl.replace(/\/$/, '');
-
-  // Ensure HTTPS in production
-  if (process.env.NODE_ENV === 'production') {
-    baseUrl = baseUrl.replace(/^http:/, 'https:');
-    backendUrl = backendUrl.replace(/^http:/, 'https:');
-  }
-
-  const urls = {
-    successUrl: `${baseUrl}/payment/success`,
-    failUrl: `${baseUrl}/payment/fail`,
-    callbackUrl: `${backendUrl}/api/payment/callback`,
-    shopUrl: baseUrl
-  };
-
-  console.log('✅ Payment URLs configured:', {
-    baseUrl,
-    backendUrl,
-    urls,
-    environment: process.env.NODE_ENV,
-    vercelUrl: process.env.VERCEL_URL,
-    hasBaseUrl: !!process.env.BASE_URL,
-    hasBackendUrl: !!process.env.BACKEND_URL
-  });
-
-  return urls;
-}
+import { sendGiftCardEmail } from '../services/emailService.js';
 
 /**
  * Create payment request for a reservation
@@ -122,6 +44,8 @@ export const createPayment = async (req, res) => {
     // Get CMI credentials from environment
     const clientId = process.env.CMI_CLIENT_ID;
     const storeKey = process.env.CMI_STORE_KEY;
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const backendUrl = process.env.BACKEND_URL || process.env.BASE_URL || 'http://localhost:3001';
 
     if (!clientId || !storeKey) {
       return res.status(500).json({ 
@@ -129,16 +53,13 @@ export const createPayment = async (req, res) => {
       });
     }
 
-    // Get payment URLs
-    let urls;
-    try {
-      urls = getPaymentUrls(req);
-    } catch (error) {
-      console.error('Error configuring payment URLs:', error.message);
-      return res.status(500).json({ 
-        error: error.message 
-      });
-    }
+    // Payment URLs
+    const urls = {
+      successUrl: `${baseUrl}/payment/success`,
+      failUrl: `${baseUrl}/payment/fail`,
+      callbackUrl: `${backendUrl}/api/payment/callback`,
+      shopUrl: baseUrl
+    };
 
     // Use reservation reference or UUID as order ID
     const orderReference = reservationReference;
@@ -218,6 +139,8 @@ export const createOfferPayment = async (req, res) => {
     // Get CMI credentials from environment
     const clientId = process.env.CMI_CLIENT_ID;
     const storeKey = process.env.CMI_STORE_KEY;
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const backendUrl = process.env.BACKEND_URL || process.env.BASE_URL || 'http://localhost:3001';
 
     if (!clientId || !storeKey) {
       return res.status(500).json({ 
@@ -225,16 +148,13 @@ export const createOfferPayment = async (req, res) => {
       });
     }
 
-    // Get payment URLs
-    let urls;
-    try {
-      urls = getPaymentUrls(req);
-    } catch (error) {
-      console.error('Error configuring payment URLs:', error.message);
-      return res.status(500).json({ 
-        error: error.message 
-      });
-    }
+    // Payment URLs
+    const urls = {
+      successUrl: `${baseUrl}/payment/success`,
+      failUrl: `${baseUrl}/payment/fail`,
+      callbackUrl: `${backendUrl}/api/payment/callback`,
+      shopUrl: baseUrl
+    };
 
     // Use offer reference or UUID as order ID
     const orderReference = offerReference;
@@ -359,27 +279,25 @@ export const paymentCallback = async (req, res) => {
           // Update offer status to confirmed
           try {
             await Offre.update(offer.offre_uuid, {
-              status: 'confirmé'
+              Status: 'confirmé'
             });
+            
+            // Send gift card email to recipient
+            try {
+              const emailResult = await sendGiftCardEmail(offer, 'fr');
+              if (emailResult.success) {
+                console.log(`✅ Gift card email sent successfully to ${offer.EmailBeneficiaire}`);
+              } else {
+                console.error(`❌ Failed to send gift card email: ${emailResult.error}`);
+              }
+            } catch (emailError) {
+              console.error('Error sending gift card email:', emailError);
+              // Don't fail the payment callback if email fails
+            }
           } catch (updateError) {
             console.error('Error updating offer status:', updateError);
-            // Continue even if status update fails
+            // Don't fail the payment callback if update fails
           }
-
-          // Send gift card email to recipient
-          // Send email asynchronously to not block the callback response
-          sendOfferGiftEmail(offer, 'fr')
-            .then((emailResult) => {
-              if (emailResult.success) {
-                console.log(`✅ Gift card email sent successfully to: ${offer.emailbeneficiaire}`);
-              } else {
-                console.error(`❌ Failed to send gift card email:`, emailResult.error);
-              }
-            })
-            .catch((emailError) => {
-              console.error('❌ Error sending gift card email:', emailError);
-              // Don't fail the payment callback if email fails
-            });
         } else if (verification === 'APPROVED') {
           console.log(`⚠️ Payment approved for offer ${offer.offre_uuid}, but needs verification`);
         }

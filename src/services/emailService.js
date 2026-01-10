@@ -1580,133 +1580,152 @@ Merci de procéder à la vérification des disponibilités et de contacter le cl
 }
 
 /**
- * Generate HTML email for gift card offer notification
- * @param {Object} offer - Offer object with all details
- * @param {string} language - Language (fr or en)
- * @returns {string} HTML content
+ * Generate HTML email template for gift card notification
+ * @param {Object} offerData - Offer data with recipient and sender information
+ * @param {string} language - Language for the email (fr or en)
+ * @returns {string} HTML email content
  */
-function generateOfferGiftEmailHTML(offer, language = 'fr') {
+function generateGiftCardEmailHTML(offerData, language = 'fr') {
   const {
-    nombeneficiaire,
-    nomenvoyeur,
+    NomBeneficiaire,
+    EmailBeneficiaire,
+    NomEnvoyeur,
+    NomService,
     NomServiceFr,
     NomServiceEn,
-    NomService,
+    duree,
     durée,
-    codeunique,
-    created_at
-  } = offer;
+    codeunique
+  } = offerData;
 
-  const serviceName = language === 'fr'
+  const recipientName = NomBeneficiaire || '{{Name}}';
+  const senderName = NomEnvoyeur || '{{Sender}}';
+  const serviceName = language === 'fr' 
     ? (NomServiceFr || NomService || 'Service')
     : (NomServiceEn || NomService || 'Service');
 
-  // Format duration
-  let durationText = '1 heure';
-  if (durée) {
-    const minutes = parseInt(durée);
+  // Format duration (handle both duree and durée)
+  const durationMinutes = duree || durée;
+  let durationText = '';
+  if (durationMinutes) {
+    const minutes = parseInt(durationMinutes);
     if (minutes === 60) {
       durationText = language === 'fr' ? '1 heure' : '1 hour';
     } else if (minutes === 90) {
-      durationText = '1h30';
+      durationText = language === 'fr' ? '1h30' : '1h30';
     } else if (minutes === 120) {
       durationText = language === 'fr' ? '2 heures' : '2 hours';
     } else if (minutes === 75) {
-      durationText = '1h15';
+      durationText = language === 'fr' ? '1h15' : '1h15';
+    } else if (minutes === 30) {
+      durationText = language === 'fr' ? '30 minutes' : '30 minutes';
     } else {
       durationText = language === 'fr' ? `${minutes} minutes` : `${minutes} minutes`;
     }
   }
 
-  // Format validity date (1 year from creation)
-  const validityDate = new Date(created_at || Date.now());
-  validityDate.setFullYear(validityDate.getFullYear() + 1);
-  const formattedValidityDate = validityDate.toLocaleDateString(
-    language === 'fr' ? 'fr-FR' : 'en-US',
-    { day: '2-digit', month: '2-digit', year: 'numeric' }
-  );
+  // Create gift card link with code
+  const giftCardLink = `${BASE_URL}/gift-card?code=${encodeURIComponent(codeunique || '')}`;
 
-  // Build gift card URL
-  const giftCardUrl = `${BASE_URL}/gift-card?code=${encodeURIComponent(codeunique)}`;
-
-  const subject = language === 'fr'
-    ? 'Un cadeau vous attend chez Mor Thai Spa!'
-    : 'A gift awaits you at Mor Thai Spa!';
-
-  const greeting = language === 'fr'
-    ? `Cher/ère ${nombeneficiaire || 'client(e)'},`
-    : `Dear ${nombeneficiaire || 'client'},`;
-
-  const messageText = language === 'fr'
-    ? `<p style="margin-top:0;">${greeting}</p>
-       <p>Nous avons le plaisir de vous informer que <strong>${nomenvoyeur || 'quelqu\'un'}</strong> vous a offert un cadeau spécial chez <strong>Mor Thai Spa</strong> !</p>
-       <p>Vous avez reçu une carte cadeau pour profiter d'un moment de détente et de bien-être.</p>
-       <p><strong>Service offert :</strong> ${serviceName}${durationText ? ` – ${durationText}` : ''}</p>
-       <p><strong>Validité :</strong> Valable 1 an à partir du ${formattedValidityDate}</p>
-       <p style="margin-top:24px;">Cliquez sur le bouton ci-dessous pour voir votre carte cadeau :</p>`
-    : `<p style="margin-top:0;">${greeting}</p>
-       <p>We are pleased to inform you that <strong>${nomenvoyeur || 'someone'}</strong> has offered you a special gift at <strong>Mor Thai Spa</strong>!</p>
-       <p>You have received a gift card to enjoy a moment of relaxation and well-being.</p>
-       <p><strong>Service offered:</strong> ${serviceName}${durationText ? ` – ${durationText}` : ''}</p>
-       <p><strong>Validity:</strong> Valid for 1 year from ${formattedValidityDate}</p>
-       <p style="margin-top:24px;">Click the button below to view your gift card:</p>`;
-
-  const buttonText = language === 'fr' ? 'Voir mon cadeau' : 'View my gift';
+  const messageContent = language === 'fr'
+    ? `<p style="margin-top:0;"><strong>Cher/ère ${recipientName},</strong></p>
+       <p>Nous avons le plaisir de vous informer que <strong>${senderName}</strong> vous a offert un cadeau au <strong>Mor Thai Spa</strong> !</p>
+       <p>Un moment de détente et de bien-être vous attend. Cliquez sur le bouton ci-dessous pour découvrir votre carte cadeau.</p>
+       <p style="margin-top:16px;">Chaleureusement,<br>L'équipe Mor Thai Spa</p>`
+    : `<p style="margin-top:0;"><strong>Dear ${recipientName},</strong></p>
+       <p>We are pleased to inform you that <strong>${senderName}</strong> has given you a gift at <strong>Mor Thai Spa</strong>!</p>
+       <p>A moment of relaxation and well-being awaits you. Click on the button below to discover your gift card.</p>
+       <p style="margin-top:16px;">Warmly,<br>The Mor Thai Spa Team</p>`;
 
   return `
 <!DOCTYPE html>
 <html lang="${language}">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${subject}</title>
+  <title>${language === 'fr' ? 'Vous avez reçu un cadeau de Mor Thai Spa !' : 'You have received a gift from Mor Thai Spa!'}</title>
 </head>
-<body style="margin:0; padding:0; font-family:Arial, sans-serif; background-color:#f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5; padding:20px 0;">
+<body style="margin:0; padding:0; background-color:#f5f1ec;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f1ec;">
     <tr>
-      <td align="center">
+      <td align="center" style="padding:24px 12px;">
         <!-- Container -->
-        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-          
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#faf7f2; border-radius:12px; overflow:hidden; font-family:Arial, Helvetica, sans-serif;">
           <!-- Header Image -->
           <tr>
-            <td align="center" style="padding:0;">
-              <img src="${BASE_URL}/homepage/${encodeURIComponent("Page d'accueil Nos massages.webp")}" alt="Mor Thai Spa" style="width:100%; max-width:600px; height:auto; display:block; border:0;">
+            <td>
+              <img src="${BASE_URL}/homepage/${encodeURIComponent("Page d'accueil Nos massages.webp")}"
+                   width="600"
+                   alt="Mor Thai Spa"
+                   style="display:block; width:100%; height:auto;">
             </td>
           </tr>
 
-          <!-- Content -->
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding:16px 0 8px;">
+              <span style="font-size:24px; font-weight:600; color:#6b7b66;">
+                Mor Thai
+              </span>
+            </td>
+          </tr>
+          
+          <!-- Title -->
+          <tr>
+            <td align="center" style="padding:8px 32px;">
+              <h2 style="margin:0; font-size:20px; letter-spacing:1px; color:#6b7b66;">
+                ${language === 'fr' ? 'Vous avez reçu un cadeau !' : 'You have received a gift!'}
+              </h2>
+            </td>
+          </tr>
+          
+          <!-- Message Content -->
           <tr>
             <td style="padding:24px 40px; font-size:14px; color:#333; line-height:1.6;">
-              ${messageText}
-              
-              <!-- Button -->
-              <div style="margin:32px 0; text-align:center;">
-                <a href="${giftCardUrl}" style="display:inline-block; padding:14px 32px; background-color:#6b7b66; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:bold; font-size:16px;">
-                  ${buttonText}
-                </a>
-              </div>
-
-              <p style="margin-top:24px;">
-                ${language === 'fr'
-                  ? 'Nous vous remercions pour votre confiance et nous réjouissons de vous accueillir très prochainement.'
-                  : 'We thank you for your trust and look forward to welcoming you very soon.'}
-              </p>
-              <p style="margin-top:16px;">
-                ${language === 'fr' ? 'Bien cordialement,<br>L\'équipe Mor Thai Spa' : 'Best regards,<br>The Mor Thai Spa Team'}
-              </p>
+              ${messageContent}
+            </td>
+          </tr>
+          
+          <!-- Gift Card Details Box -->
+          <tr>
+            <td style="padding:0 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0"
+                     style="background-color:#f3f0eb; border-radius:10px;">
+                <tr>
+                  <td style="padding:14px 16px; background-color:#e8e4dd; font-weight:bold; color:#6b7b66; border-radius:10px 10px 0 0;">
+                    ${language === 'fr' ? 'Détails du cadeau' : 'Gift Details'}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 16px 16px; font-size:14px; color:#333;">
+                    <p style="margin:12px 0;"><strong>${language === 'fr' ? 'De la part de' : 'From'} :</strong> ${senderName}</p>
+                    <p style="margin:12px 0;"><strong>${language === 'fr' ? 'Soin' : 'Treatment'} :</strong> ${serviceName}${durationText ? ` – ${durationText}` : ''}</p>
+                    ${codeunique ? `<p style="margin:12px 0;"><strong>${language === 'fr' ? 'Code unique' : 'Unique code'} :</strong> ${codeunique}</p>` : ''}
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
+          <!-- Button -->
+          <tr>
+            <td align="center" style="padding:24px;">
+                <a href="${giftCardLink}" 
+                 style="background-color:#6b7b66; color:#ffffff; text-decoration:none;
+                        padding:14px 28px; border-radius:8px; font-size:16px; font-weight:bold; display:inline-block;">
+                  ${language === 'fr' ? 'Voir mon cadeau' : 'View my gift'}
+                </a>
+            </td>
+          </tr>
+          
           <!-- Footer -->
           <tr>
             <td align="center" style="padding:16px; background-color:#f0ede8; font-size:12px; color:#666;">
               <!-- Contact Information -->
               <div style="margin-bottom:12px; line-height:1.8;">
-                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Adresse' : 'Address'}:</strong> <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech')}" target="_blank" style="color:#6b7b66; text-decoration:underline;">N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (à l'arrière Le Centre Américain).</a></p>
-                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Téléphone' : 'Phone'}:</strong> <a href="tel:+212524207055" style="color:#6b7b66; text-decoration:underline;">+212 524 207 055</a></p>
-                <p style="margin:4px 0;"><strong>WhatsApp:</strong> <a href="https://wa.me/212610200040" target="_blank" style="color:#6b7b66; text-decoration:underline;">+212 610 200 040</a></p>
-                <p style="margin:4px 0;"><strong>Email:</strong> <a href="mailto:contact@morthai-marrakech.com" style="color:#6b7b66; text-decoration:underline;">contact@morthai-marrakech.com</a></p>
+                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Adresse' : 'Address'} :</strong> <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech')}" target="_blank" style="color:#6b7b66; text-decoration:underline;">${language === 'fr' ? 'N° 52, 5ème Etage, Immeuble Le Noyer B, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (à l\'arrière Le Centre Américain).' : 'N° 52, 5th Floor, Le Noyer B Building, Rue Ibn Sina Atlassi, Gueliz, Marrakech. (behind the American Center).'}</a></p>
+                <p style="margin:4px 0;"><strong>${language === 'fr' ? 'Téléphone' : 'Phone'} :</strong> <a href="tel:+212524207055" style="color:#6b7b66; text-decoration:underline;">+212 524 207 055</a></p>
+                <p style="margin:4px 0;"><strong>WhatsApp :</strong> <a href="https://wa.me/212610200040" target="_blank" style="color:#6b7b66; text-decoration:underline;">+212 610 200 040</a></p>
+                <p style="margin:4px 0;"><strong>Email :</strong> <a href="mailto:contact@morthai-marrakech.com" style="color:#6b7b66; text-decoration:underline;">contact@morthai-marrakech.com</a></p>
               </div>
               <!-- Social Media Icons -->
               <div style="margin-bottom:12px;">
@@ -1731,108 +1750,37 @@ function generateOfferGiftEmailHTML(offer, language = 'fr') {
 }
 
 /**
- * Send gift card email to recipient after successful payment
- * @param {Object} offer - Offer object with all details
- * @param {string} language - Language (fr or en)
- * @returns {Promise<Object>} Result object with success status
+ * Send gift card notification email to recipient
+ * @param {Object} offer - Offer object with recipient and sender information
+ * @param {string} language - Language for the email (fr or en)
+ * @returns {Promise<Object>} API response
  */
-export async function sendOfferGiftEmail(offer, language = 'fr') {
-  if (!offer || !offer.emailbeneficiaire) {
+export async function sendGiftCardEmail(offer, language = 'fr') {
+  if (!offer || !offer.EmailBeneficiaire) {
     return { success: false, error: 'Offer data and recipient email are required' };
   }
 
   const subject = language === 'fr'
-    ? 'Un cadeau vous attend chez Mor Thai Spa!'
-    : 'A gift awaits you at Mor Thai Spa!';
+    ? 'Vous avez reçu un cadeau de Mor Thai Spa !'
+    : 'You have received a gift from Mor Thai Spa!';
 
-  // Generate HTML content
-  const htmlContent = generateOfferGiftEmailHTML(offer, language);
+  // Generate HTML email
+  const htmlContent = generateGiftCardEmailHTML(offer, language);
 
   // Generate plain text version
-  const {
-    nombeneficiaire,
-    nomenvoyeur,
-    NomServiceFr,
-    NomServiceEn,
-    NomService,
-    durée,
-    codeunique,
-    created_at
-  } = offer;
-
-  const serviceName = language === 'fr'
-    ? (NomServiceFr || NomService || 'Service')
-    : (NomServiceEn || NomService || 'Service');
-
-  // Format duration
-  let durationText = '1 heure';
-  if (durée) {
-    const minutes = parseInt(durée);
-    if (minutes === 60) {
-      durationText = language === 'fr' ? '1 heure' : '1 hour';
-    } else if (minutes === 90) {
-      durationText = '1h30';
-    } else if (minutes === 120) {
-      durationText = language === 'fr' ? '2 heures' : '2 hours';
-    } else {
-      durationText = language === 'fr' ? `${minutes} minutes` : `${minutes} minutes`;
-    }
-  }
-
-  // Format validity date
-  const validityDate = new Date(created_at || Date.now());
-  validityDate.setFullYear(validityDate.getFullYear() + 1);
-  const formattedValidityDate = validityDate.toLocaleDateString(
-    language === 'fr' ? 'fr-FR' : 'en-US',
-    { day: '2-digit', month: '2-digit', year: 'numeric' }
-  );
-
-  const giftCardUrl = `${BASE_URL}/gift-card?code=${encodeURIComponent(codeunique)}`;
-
+  const recipientName = offer.NomBeneficiaire || '{{Name}}';
+  const senderName = offer.NomEnvoyeur || '{{Sender}}';
   const textContent = language === 'fr'
-    ? `Cher/ère ${nombeneficiaire || 'client(e)'},
+    ? `Cher/ère ${recipientName},\n\nNous avons le plaisir de vous informer que ${senderName} vous a offert un cadeau au Mor Thai Spa !\n\nUn moment de détente et de bien-être vous attend. Cliquez sur le lien suivant pour découvrir votre carte cadeau :\n${BASE_URL}/gift-card?code=${encodeURIComponent(offer.codeunique || '')}\n\nChaleureusement,\nL'équipe Mor Thai Spa`
+    : `Dear ${recipientName},\n\nWe are pleased to inform you that ${senderName} has given you a gift at Mor Thai Spa!\n\nA moment of relaxation and well-being awaits you. Click on the following link to discover your gift card:\n${BASE_URL}/gift-card?code=${encodeURIComponent(offer.codeunique || '')}\n\nWarmly,\nThe Mor Thai Spa Team`;
 
-Nous avons le plaisir de vous informer que ${nomenvoyeur || 'quelqu\'un'} vous a offert un cadeau spécial chez Mor Thai Spa !
-
-Vous avez reçu une carte cadeau pour profiter d'un moment de détente et de bien-être.
-
-Service offert : ${serviceName}${durationText ? ` – ${durationText}` : ''}
-Validité : Valable 1 an à partir du ${formattedValidityDate}
-
-Cliquez sur le lien suivant pour voir votre carte cadeau :
-${giftCardUrl}
-
-Nous vous remercions pour votre confiance et nous réjouissons de vous accueillir très prochainement.
-
-Bien cordialement,
-L'équipe Mor Thai Spa`
-    : `Dear ${nombeneficiaire || 'client'},
-
-We are pleased to inform you that ${nomenvoyeur || 'someone'} has offered you a special gift at Mor Thai Spa!
-
-You have received a gift card to enjoy a moment of relaxation and well-being.
-
-Service offered: ${serviceName}${durationText ? ` – ${durationText}` : ''}
-Validity: Valid for 1 year from ${formattedValidityDate}
-
-Click the following link to view your gift card:
-${giftCardUrl}
-
-We thank you for your trust and look forward to welcoming you very soon.
-
-Best regards,
-The Mor Thai Spa Team`;
-
-  try {
-    const result = await sendEmail(offer.emailbeneficiaire, subject, textContent, htmlContent);
-    return result;
-  } catch (error) {
-    console.error('Error sending offer gift email:', error);
-    return {
-      success: false,
-      error: error.message,
-      errorDetails: error
-    };
-  }
+  const result = await sendEmail(offer.EmailBeneficiaire, subject, textContent, htmlContent);
+  
+  return {
+    ...result,
+    subject,
+    htmlContent,
+    textContent
+  };
 }
 
