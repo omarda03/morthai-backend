@@ -59,7 +59,20 @@ DB_USER=morthai_user
 DB_PASSWORD=your_secure_password
 JWT_SECRET=your_super_secret_jwt_key_change_this
 CORS_ORIGIN=https://yourdomain.com
+
+# CMI Payment Gateway (REQUIRED for online payments)
+CMI_CLIENT_ID=your_cmi_client_id
+CMI_STORE_KEY=your_cmi_store_key
+BASE_URL=https://yourdomain.com
+BACKEND_URL=https://api.yourdomain.com
 ```
+
+**Important:** 
+- For **production**, use **production CMI credentials** (contact CMI to obtain these)
+- Do NOT use test credentials in production
+- `BASE_URL` should be your frontend URL (e.g., `https://morthai.compify.cloud`)
+- `BACKEND_URL` should be your backend API URL
+- If `BACKEND_URL` is not set, it will fallback to `BASE_URL`
 
 ### 5. Start with PM2
 
@@ -166,4 +179,14 @@ pm2 restart morthai-backend
 **Database connection errors:**
 - Verify PostgreSQL is running: `sudo systemctl status postgresql`
 - Check database credentials in `.env`
+
+**Payment gateway not working (500 error):**
+- **Most common issue:** CMI credentials not configured
+- Check if `CMI_CLIENT_ID` and `CMI_STORE_KEY` are set in `.env` file
+- Verify credentials are **production credentials**, not test credentials
+- Check logs: `pm2 logs morthai-backend` and look for "CMI credentials missing" or "Payment request environment check"
+- Ensure `BASE_URL` and `BACKEND_URL` are set correctly (use HTTPS in production)
+- Restart the server after updating `.env`: `pm2 restart morthai-backend`
+- Verify environment variables are loaded: Check logs for "Payment request environment check" output
+- **Note:** Users can still make reservations with "Pay at Spa" option if CMI is not configured
 

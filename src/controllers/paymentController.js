@@ -47,13 +47,29 @@ export const createPayment = async (req, res) => {
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
     const backendUrl = process.env.BACKEND_URL || process.env.BASE_URL || 'http://localhost:3001';
 
+    console.log('Payment request environment check:', {
+      hasClientId: !!clientId,
+      hasStoreKey: !!storeKey,
+      baseUrl,
+      backendUrl,
+      nodeEnv: process.env.NODE_ENV
+    });
+
     if (!clientId || !storeKey) {
+      console.error('CMI credentials missing:', {
+        CMI_CLIENT_ID: clientId ? 'SET' : 'MISSING',
+        CMI_STORE_KEY: storeKey ? 'SET' : 'MISSING'
+      });
       return res.status(500).json({ 
-        error: 'CMI payment gateway credentials not configured' 
+        error: 'CMI payment gateway credentials not configured. Please check CMI_CLIENT_ID and CMI_STORE_KEY environment variables.',
+        details: {
+          hasClientId: !!clientId,
+          hasStoreKey: !!storeKey
+        }
       });
     }
 
-    // Payment URLs
+    // Payment URLs - ensure HTTPS in production
     const urls = {
       successUrl: `${baseUrl}/payment/success`,
       failUrl: `${baseUrl}/payment/fail`,
@@ -61,39 +77,50 @@ export const createPayment = async (req, res) => {
       shopUrl: baseUrl
     };
 
+    console.log('Payment URLs configured:', urls);
+
     // Use reservation reference or UUID as order ID
     const orderReference = reservationReference;
 
-    // Create payment request data
-    const paymentData = createPaymentRequest(
-      {
-        firstName,
-        lastName,
-        email,
-        phone,
-        amount,
-        reference: orderReference,
-        address: '',
-        postalCode: ''
-      },
-      clientId,
-      storeKey,
-      urls
-    );
+    try {
+      // Create payment request data
+      const paymentData = createPaymentRequest(
+        {
+          firstName,
+          lastName,
+          email,
+          phone,
+          amount,
+          reference: orderReference,
+          address: '',
+          postalCode: ''
+        },
+        clientId,
+        storeKey,
+        urls
+      );
 
-    // Generate payment form HTML
-    const formHtml = generatePaymentForm(paymentData);
+      console.log('Payment data created successfully for reference:', orderReference);
 
-    res.json({
-      status: 200,
-      form: formHtml,
-      paymentData: paymentData // For debugging purposes, remove in production
-    });
+      // Generate payment form HTML
+      const formHtml = generatePaymentForm(paymentData);
+
+      res.json({
+        status: 200,
+        form: formHtml,
+        paymentData: paymentData // For debugging purposes, remove in production
+      });
+    } catch (paymentError) {
+      console.error('Error creating payment request data:', paymentError);
+      throw paymentError;
+    }
   } catch (error) {
     console.error('Error creating payment:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       status: 500,
-      error: error.message
+      error: error.message || 'An error occurred while creating payment request',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -142,13 +169,29 @@ export const createOfferPayment = async (req, res) => {
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
     const backendUrl = process.env.BACKEND_URL || process.env.BASE_URL || 'http://localhost:3001';
 
+    console.log('Offer payment request environment check:', {
+      hasClientId: !!clientId,
+      hasStoreKey: !!storeKey,
+      baseUrl,
+      backendUrl,
+      nodeEnv: process.env.NODE_ENV
+    });
+
     if (!clientId || !storeKey) {
+      console.error('CMI credentials missing for offer payment:', {
+        CMI_CLIENT_ID: clientId ? 'SET' : 'MISSING',
+        CMI_STORE_KEY: storeKey ? 'SET' : 'MISSING'
+      });
       return res.status(500).json({ 
-        error: 'CMI payment gateway credentials not configured' 
+        error: 'CMI payment gateway credentials not configured. Please check CMI_CLIENT_ID and CMI_STORE_KEY environment variables.',
+        details: {
+          hasClientId: !!clientId,
+          hasStoreKey: !!storeKey
+        }
       });
     }
 
-    // Payment URLs
+    // Payment URLs - ensure HTTPS in production
     const urls = {
       successUrl: `${baseUrl}/payment/success`,
       failUrl: `${baseUrl}/payment/fail`,
@@ -156,39 +199,50 @@ export const createOfferPayment = async (req, res) => {
       shopUrl: baseUrl
     };
 
+    console.log('Offer payment URLs configured:', urls);
+
     // Use offer reference or UUID as order ID
     const orderReference = offerReference;
 
-    // Create payment request data
-    const paymentData = createPaymentRequest(
-      {
-        firstName,
-        lastName,
-        email,
-        phone,
-        amount,
-        reference: orderReference,
-        address: '',
-        postalCode: ''
-      },
-      clientId,
-      storeKey,
-      urls
-    );
+    try {
+      // Create payment request data
+      const paymentData = createPaymentRequest(
+        {
+          firstName,
+          lastName,
+          email,
+          phone,
+          amount,
+          reference: orderReference,
+          address: '',
+          postalCode: ''
+        },
+        clientId,
+        storeKey,
+        urls
+      );
 
-    // Generate payment form HTML
-    const formHtml = generatePaymentForm(paymentData);
+      console.log('Offer payment data created successfully for reference:', orderReference);
 
-    res.json({
-      status: 200,
-      form: formHtml,
-      paymentData: paymentData // For debugging purposes, remove in production
-    });
+      // Generate payment form HTML
+      const formHtml = generatePaymentForm(paymentData);
+
+      res.json({
+        status: 200,
+        form: formHtml,
+        paymentData: paymentData // For debugging purposes, remove in production
+      });
+    } catch (paymentError) {
+      console.error('Error creating offer payment request data:', paymentError);
+      throw paymentError;
+    }
   } catch (error) {
     console.error('Error creating offer payment:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       status: 500,
-      error: error.message
+      error: error.message || 'An error occurred while creating payment request',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
