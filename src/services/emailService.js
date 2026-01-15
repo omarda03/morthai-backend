@@ -10,6 +10,9 @@ const SMTP_EMAIL = process.env.SMTP_EMAIL || 'omardaou57@gmail.com';
 const SMTP_PASSWORD = (process.env.SMTP_PASSWORD || 'vxty bbdy qqfb oegv').replace(/\s/g, '');
 
 const BASE_URL = process.env.BASE_URL || 'https://morthai-marrakech.com';
+// Hero image used in email templates
+const EMAIL_HERO_IMAGE_URL =
+  process.env.EMAIL_HERO_IMAGE_URL || `${BASE_URL}/hero-email.jpeg`;
 
 // Create reusable transporter object using Gmail SMTP
 const transporter = nodemailer.createTransport({
@@ -226,7 +229,7 @@ async function generateRequestEmailHTML({
           <!-- Header Image -->
           <tr>
             <td>
-              <img src="${BASE_URL}/homepage/${encodeURIComponent("Page d'accueil Nos massages.webp")}"
+              <img src="${EMAIL_HERO_IMAGE_URL}"
                    width="600"
                    alt="Mor Thai Spa"
                    style="display:block; width:100%; height:auto;">
@@ -508,7 +511,7 @@ function generateEmailHTML({
           <!-- Header Image -->
           <tr>
             <td>
-              <img src="${BASE_URL}/homepage/${encodeURIComponent("Page d'accueil Nos massages.webp")}"
+              <img src="${EMAIL_HERO_IMAGE_URL}"
                    width="600"
                    alt="Mor Thai Spa"
                    style="display:block; width:100%; height:auto;">
